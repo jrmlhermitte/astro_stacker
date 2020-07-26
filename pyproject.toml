@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "astro_stacker"
+version = "0.1.0"
+description = "For the stacking of astronomy photos"
+authors = ["Julien Lhermitte <jrmlhermitte@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "^1.19.1"
+rawpy = "^0.14.0"
+
+[tool.poetry.dev-dependencies]
+ipython = "^7.16.1"
+
+[tool.poetry.scripts]
+pylint = "tasks:run_pylint"
+flake8 = "tasks:run_flake8"
+typechecking = "tasks:run_typechecking"
+precommit = "tasks:run_precommit"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
