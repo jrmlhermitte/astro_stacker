@@ -146,3 +146,6 @@ instance/
 
 # vscode
 .vscode
+
+# pickle
+*.pkl

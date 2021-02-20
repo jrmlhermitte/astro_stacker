@@ -8,9 +8,17 @@ authors = ["Julien Lhermitte <jrmlhermitte@gmail.com>"]
 python = "^3.8"
 numpy = "^1.19.1"
 rawpy = "^0.14.0"
+scikit-image = "^0.17.2"
+tqdm = "^4.48.0"
+scipy = "^1.5.2"
+lmfit = "^1.0.1"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.16.1"
+plotly = "^4.9.0"
+jupyter = "^1.0.0"
+pandas = "^1.0.5"
+pytest = "^5.4.3"
 
 [tool.poetry.scripts]
 pylint = "tasks:run_pylint"
