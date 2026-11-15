@@ -149,3 +149,62 @@ instance/
 
 # pickle
 *.pkl
+
+# Generated data / array files
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# Image & astrophotography RAW files (case-sensitive on Linux)
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.png
+*.PNG
+*.tif
+*.TIF
+*.tiff
+*.TIFF
+*.gif
+*.bmp
+*.cr2
+*.CR2
+*.cr3
+*.CR3
+*.nef
+*.NEF
+*.arw
+*.ARW
+*.dng
+*.DNG
+*.raw
+*.RAW
+*.fits
+*.FITS
+*.fit
+*.FIT
+*.fts
+*.FTS
+*.xcf
+*.xmp
+
+# LaTeX / document build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.pdf
+*.synctex.gz
+*.toc
+
+# OS & editor temporary files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Archives
+*.zip
+*.tar.gz
