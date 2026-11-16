@@ -20,6 +20,7 @@ namespace {
 struct CliArgs {
     std::string lights_dir;
     std::string darks_dir;
+    std::string ref_frame;
     std::string out_npy;
     std::string out_transforms;
     std::string out_fits;
@@ -39,6 +40,7 @@ CliArgs parse_cli(int argc, char** argv) {
         };
         if (key == "--lights") args.lights_dir = next_val();
         else if (key == "--darks") args.darks_dir = next_val();
+        else if (key == "--ref-frame") args.ref_frame = next_val();
         else if (key == "--out-npy") args.out_npy = next_val();
         else if (key == "--out-transforms") args.out_transforms = next_val();
         else if (key == "--out-fits") args.out_fits = next_val();
@@ -119,8 +121,21 @@ int main(int argc, char** argv) {
         clean_lights.clear();
         clean_lights.shrink_to_fit();
 
-        // 3. Select sharpest reference frame & register all frames
-        const int ref_idx = astro::select_sharpest_reference_frame(qualities);
+        // 3. Select coordinate-grid reference frame (explicit CLI origin if provided, otherwise autonomous sharpest)
+        int ref_idx = -1;
+        if (!args.ref_frame.empty()) {
+            for (int i = 0; i < n_lights; ++i) {
+                if (qualities[i].filename == args.ref_frame) {
+                    ref_idx = i;
+                    break;
+                }
+            }
+            if (ref_idx < 0) {
+                throw std::runtime_error("Requested --ref-frame not found among clean lights: " + args.ref_frame);
+            }
+        } else {
+            ref_idx = astro::select_sharpest_reference_frame(qualities);
+        }
         const std::vector<astro::FrameTransform> transforms = astro::register_all_frames(qualities, ref_idx);
         const auto t4 = std::chrono::steady_clock::now();
 
