@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace astro {
 
@@ -10,7 +11,7 @@ namespace {
 
 std::vector<DetectedStar> pick_isolated_bright_stars(
     const std::vector<DetectedStar>& stars,
-    size_t max_n = 40,
+    size_t max_n = 45,
     double min_sep = 28.0
 ) {
     std::vector<DetectedStar> sorted = stars;
@@ -43,7 +44,7 @@ std::vector<FrameTransform> register_all_frames(
 ) {
     const int n_frames = static_cast<int>(qualities.size());
     std::vector<FrameTransform> transforms(n_frames);
-    const auto ref_stars = pick_isolated_bright_stars(qualities[ref_index].stars, 40, 28.0);
+    const auto ref_stars = pick_isolated_bright_stars(qualities[ref_index].stars, 45, 28.0);
 
     #pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < n_frames; ++i) {
@@ -59,7 +60,7 @@ std::vector<FrameTransform> register_all_frames(
             continue;
         }
 
-        const auto tgt_stars = pick_isolated_bright_stars(qualities[i].stars, 45, 24.0);
+        const auto tgt_stars = pick_isolated_bright_stars(qualities[i].stars, 55, 24.0);
         struct ShiftVote {
             double dx;
             double dy;
@@ -98,51 +99,60 @@ std::vector<FrameTransform> register_all_frames(
             }
         }
 
-        // Refine translation on unique nearest star matches within 3.0 px
-        double sum_dx = 0.0;
-        double sum_dy = 0.0;
-        double sum_r2 = 0.0;
+        // Iterative Huber-weighted IRLS sub-pixel translation refinement (pure 2-DOF dx, dy; dtheta=0, s=1)
         int n_inliers = 0;
-        for (const auto& rs : ref_stars) {
-            double best_d = std::numeric_limits<double>::infinity();
-            int best_j = -1;
-            for (int j = 0; j < static_cast<int>(tgt_stars.size()); ++j) {
-                const double d = std::hypot(
-                    (tgt_stars[j].x - best_dx) - rs.x,
-                    (tgt_stars[j].y - best_dy) - rs.y
-                );
-                if (d < best_d) {
-                    best_d = d;
-                    best_j = j;
+        double sum_r2 = 0.0;
+        for (int pass = 0; pass < 4; ++pass) {
+            const double match_rad = (pass == 0) ? 3.0 : 2.2;
+            const double huber_delta = 0.65;
+            double w_sum = 0.0;
+            double w_dx = 0.0;
+            double w_dy = 0.0;
+            int cnt = 0;
+            double r2_acc = 0.0;
+
+            for (const auto& rs : ref_stars) {
+                double best_d = std::numeric_limits<double>::infinity();
+                int best_j = -1;
+                for (int j = 0; j < static_cast<int>(tgt_stars.size()); ++j) {
+                    const double d = std::hypot(
+                        (tgt_stars[j].x - best_dx) - rs.x,
+                        (tgt_stars[j].y - best_dy) - rs.y
+                    );
+                    if (d < best_d) {
+                        best_d = d;
+                        best_j = j;
+                    }
+                }
+                if (best_j >= 0 && best_d <= match_rad) {
+                    const double dx_i = tgt_stars[best_j].x - rs.x;
+                    const double dy_i = tgt_stars[best_j].y - rs.y;
+                    const double resid = std::hypot(dx_i - best_dx, dy_i - best_dy);
+                    const double w_huber = (resid <= huber_delta) ? 1.0 : (huber_delta / resid);
+                    w_sum += w_huber;
+                    w_dx += w_huber * dx_i;
+                    w_dy += w_huber * dy_i;
+                    r2_acc += resid * resid;
+                    ++cnt;
                 }
             }
-            if (best_j >= 0 && best_d <= 3.0) {
-                const double dx = tgt_stars[best_j].x - rs.x;
-                const double dy = tgt_stars[best_j].y - rs.y;
-                sum_dx += dx;
-                sum_dy += dy;
-                sum_r2 += best_d * best_d;
-                ++n_inliers;
+            if (cnt >= 4 && w_sum > 0.0) {
+                best_dx = w_dx / w_sum;
+                best_dy = w_dy / w_sum;
+                n_inliers = cnt;
+                sum_r2 = r2_acc;
             }
         }
 
-        if (n_inliers >= 4) {
-            best_dx = sum_dx / n_inliers;
-            best_dy = sum_dy / n_inliers;
-        }
-
-        // Iter 0 Baseline: Integer pixel shift-and-add (rounding sub-pixel shift to nearest integer)
-        const int int_dx = static_cast<int>(std::lround(best_dx));
-        const int int_dy = static_cast<int>(std::lround(best_dy));
-
-        ft.dx = static_cast<double>(int_dx);
-        ft.dy = static_cast<double>(int_dy);
+        // Iter 3: Exact continuous sub-pixel translation (dtheta = 0, scale = 1.0)
+        ft.dx = best_dx;
+        ft.dy = best_dy;
         ft.dtheta_deg = 0.0;
         ft.scale = 1.0;
         ft.m00 = 1.0; ft.m01 = 0.0;
         ft.m10 = 0.0; ft.m11 = 1.0;
-        ft.tx = ft.dx;
-        ft.ty = ft.dy;
+        ft.tx = best_dx;
+        ft.ty = best_dy;
         ft.inlier_matches = n_inliers;
         ft.residual_rms_px = (n_inliers > 0) ? std::sqrt(sum_r2 / n_inliers) : 0.0;
         transforms[i] = ft;
