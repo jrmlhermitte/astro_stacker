@@ -128,9 +128,6 @@ inline void sample_rgb_lanczos3_2d(
     out_b = acc_b;
 }
 
-// Per-channel 1st-degree planar differential sky-glow model (Guardrail 4 compliant: ONLY 3 scalar
-// plane coefficients [c0, cx, cy] per channel, fitted to I_frame/F_i - I_ref so extended nebulae
-// and galaxy disks cancel identically!).
 struct SkyDiffPlane {
     double c0[3] = {0.0, 0.0, 0.0};
     double cx[3] = {0.0, 0.0, 0.0};
@@ -203,7 +200,6 @@ SkyDiffPlane fit_frame_sky_diff_plane(
                     double sr = 0.0, sg = 0.0, sb = 0.0;
                     sample_rgb_lanczos3_2d(frame_rgb, fx, fy, sr, sg, sb);
                     const float* rp = ref_rgb + (static_cast<size_t>(r) * ACTIVE_W + c) * 3;
-                    // Reject saturated or bright star core samples where PSF FWHM differences exist
                     const double lum_r = 0.25 * rp[0] + 0.50 * rp[1] + 0.25 * rp[2];
                     if (lum_r > 800.0) continue;
 
@@ -229,7 +225,6 @@ SkyDiffPlane fit_frame_sky_diff_plane(
 
     if (blocks.size() < 16) return plane;
 
-    // 3-pass Huber IRLS fit of 1st-degree plane [c0, cx, cy] per channel
     for (int ch = 0; ch < 3; ++ch) {
         double p[3] = {0.0, 0.0, 0.0};
         for (int pass = 0; pass < 3; ++pass) {
@@ -259,6 +254,78 @@ SkyDiffPlane fit_frame_sky_diff_plane(
     return plane;
 }
 
+inline double median_insertion_small(double* buf, int n) {
+    for (int i = 1; i < n; ++i) {
+        const double key = buf[i];
+        int j = i - 1;
+        while (j >= 0 && buf[j] > key) {
+            buf[j + 1] = buf[j];
+            --j;
+        }
+        buf[j + 1] = key;
+    }
+    const int mid = n / 2;
+    return ((n & 1) == 1) ? buf[mid] : 0.5 * (buf[mid - 1] + buf[mid]);
+}
+
+// Per-pixel temporal Winsorized Sigma Clipping across the N aligned exposures at fixed (r, c):
+// Clamps temporal outliers (drifting sensor warm pixels, MHC warm-pixel rings, cosmic rays,
+// satellite streaks) to [loc - kappa*sig, loc + kappa*sig] along the frame axis ONLY (zero
+// spatial coupling between pixels!), using an amplitude-proportional PSF-seeing tolerance
+// floor (0.22 * signal_above_sky) so genuine FWHM differences across frames are never clipped.
+inline double winsorized_weighted_combine(
+    const double* vals,
+    const double* norm_w,
+    int n,
+    double ref_sky_med
+) {
+    if (n <= 2) {
+        double s = 0.0;
+        for (int i = 0; i < n; ++i) s += norm_w[i] * vals[i];
+        return s;
+    }
+
+    constexpr int MAX_STACK = 64;
+    double tmp[MAX_STACK];
+    for (int i = 0; i < n; ++i) tmp[i] = vals[i];
+    const double med0 = median_insertion_small(tmp, n);
+
+    for (int i = 0; i < n; ++i) tmp[i] = std::abs(vals[i] - med0);
+    const double mad0 = median_insertion_small(tmp, n) * 1.4826;
+
+    constexpr double KAPPA = 2.8;
+    double loc = med0;
+    double sig = std::max(1e-4, std::hypot(mad0, 0.22 * std::max(0.0, loc - ref_sky_med)));
+
+    for (int iter = 0; iter < 2; ++iter) {
+        const double lo = loc - KAPPA * sig;
+        const double hi = loc + KAPPA * sig;
+        double w_loc = 0.0;
+        for (int i = 0; i < n; ++i) {
+            w_loc += norm_w[i] * std::clamp(vals[i], lo, hi);
+        }
+        loc = w_loc;
+
+        double w_var = 0.0;
+        for (int i = 0; i < n; ++i) {
+            const double wc = std::clamp(vals[i], lo, hi);
+            const double d = wc - loc;
+            w_var += norm_w[i] * d * d;
+        }
+        // Consistency factor 1.038 for symmetric kappa = 2.8 Winsorized Gaussian variance
+        const double sig_emp = std::sqrt(w_var) * 1.038;
+        sig = std::max(1e-4, std::hypot(sig_emp, 0.22 * std::max(0.0, loc - ref_sky_med)));
+    }
+
+    const double lo = loc - KAPPA * sig;
+    const double hi = loc + KAPPA * sig;
+    double out = 0.0;
+    for (int i = 0; i < n; ++i) {
+        out += norm_w[i] * std::clamp(vals[i], lo, hi);
+    }
+    return out;
+}
+
 } // namespace
 
 std::vector<float> integrate_frames(
@@ -270,35 +337,59 @@ std::vector<float> integrate_frames(
         throw std::runtime_error("Invalid frame/transform count in integrate_frames");
     }
 
+    std::vector<int> active_indices;
+    active_indices.reserve(n_frames);
     int ref_idx = 0;
     double weight_sum = 0.0;
     for (int i = 0; i < n_frames; ++i) {
         if (transforms[i].is_reference) ref_idx = i;
         if (transforms[i].integrated && transforms[i].weight > 0.0) {
+            active_indices.push_back(i);
             weight_sum += transforms[i].weight;
         }
     }
-    if (weight_sum <= 0.0) {
-        throw std::runtime_error("Zero total weight in integrate_frames");
+    const int n_act = static_cast<int>(active_indices.size());
+    if (n_act == 0 || weight_sum <= 0.0) {
+        throw std::runtime_error("Zero active frames in integrate_frames");
+    }
+    if (n_act > 64) {
+        throw std::runtime_error("Active frame count exceeds fixed stack buffer (64)");
+    }
+
+    std::vector<double> norm_w(n_act);
+    for (int k = 0; k < n_act; ++k) {
+        norm_w[k] = transforms[active_indices[k]].weight / weight_sum;
+    }
+
+    // Estimate per-channel reference sky median on interior strided grid for PSF-tolerance floor
+    double ref_sky_med[3] = {0.0, 0.0, 0.0};
+    for (int ch = 0; ch < 3; ++ch) {
+        std::vector<double> samp;
+        samp.reserve(((ACTIVE_H - 2 * ROI_MARGIN) / 12) * ((ACTIVE_W - 2 * ROI_MARGIN) / 12));
+        for (int r = ROI_MARGIN; r < ACTIVE_H - ROI_MARGIN; r += 12) {
+            for (int c = ROI_MARGIN; c < ACTIVE_W - ROI_MARGIN; c += 12) {
+                samp.push_back(static_cast<double>(rgb_frames[ref_idx][(static_cast<size_t>(r) * ACTIVE_W + c) * 3 + ch]));
+            }
+        }
+        const size_t mid = samp.size() / 2;
+        std::nth_element(samp.begin(), samp.begin() + mid, samp.end());
+        ref_sky_med[ch] = samp[mid];
     }
 
     (void)get_lanczos3_lut();
 
-    // Fit per-frame 1st-degree differential sky-glow planes in parallel
     std::vector<SkyDiffPlane> sky_planes(n_frames);
     #pragma omp parallel for schedule(dynamic, 1)
-    for (int f = 0; f < n_frames; ++f) {
-        if (transforms[f].integrated && transforms[f].weight > 0.0) {
-            sky_planes[f] = fit_frame_sky_diff_plane(
-                rgb_frames[f].data(),
-                rgb_frames[ref_idx].data(),
-                transforms[f]
-            );
-        }
+    for (int k = 0; k < n_act; ++k) {
+        const int f = active_indices[k];
+        sky_planes[f] = fit_frame_sky_diff_plane(
+            rgb_frames[f].data(),
+            rgb_frames[ref_idx].data(),
+            transforms[f]
+        );
     }
 
     std::vector<float> stack_out(ACTIVE_PIXELS * 3, 0.0f);
-    const double inv_w_sum = 1.0 / weight_sum;
     const double cx_center = (ACTIVE_W - 1) * 0.5;
     const double cy_center = (ACTIVE_H - 1) * 0.5;
     const double inv_w_norm = 1.0 / static_cast<double>(ACTIVE_W);
@@ -310,17 +401,17 @@ std::vector<float> integrate_frames(
         const double ny = ry * inv_h_norm;
         float* dst_row = stack_out.data() + static_cast<size_t>(r) * ACTIVE_W * 3;
 
+        double vals_r[64];
+        double vals_g[64];
+        double vals_b[64];
+
         for (int c = 0; c < ACTIVE_W; ++c) {
             const double rx = static_cast<double>(c) - cx_center;
             const double nx = rx * inv_w_norm;
-            double sum_r = 0.0;
-            double sum_g = 0.0;
-            double sum_b = 0.0;
 
-            for (int f = 0; f < n_frames; ++f) {
+            for (int k = 0; k < n_act; ++k) {
+                const int f = active_indices[k];
                 const auto& tr = transforms[f];
-                if (!tr.integrated || tr.weight <= 0.0) continue;
-
                 const double fx = cx_center + (tr.m00 * rx + tr.m01 * ry + tr.tx);
                 const double fy = cy_center + (tr.m10 * rx + tr.m11 * ry + tr.ty);
 
@@ -329,19 +420,14 @@ std::vector<float> integrate_frames(
 
                 const double inv_f = 1.0 / std::max(0.25, tr.flux_scale);
                 const auto& sp = sky_planes[f];
-                const double cal_r = sr * inv_f - (sp.c0[0] + sp.cx[0] * nx + sp.cy[0] * ny);
-                const double cal_g = sg * inv_f - (sp.c0[1] + sp.cx[1] * nx + sp.cy[1] * ny);
-                const double cal_b = sb * inv_f - (sp.c0[2] + sp.cx[2] * nx + sp.cy[2] * ny);
-
-                const double w = tr.weight;
-                sum_r += w * cal_r;
-                sum_g += w * cal_g;
-                sum_b += w * cal_b;
+                vals_r[k] = sr * inv_f - (sp.c0[0] + sp.cx[0] * nx + sp.cy[0] * ny);
+                vals_g[k] = sg * inv_f - (sp.c0[1] + sp.cx[1] * nx + sp.cy[1] * ny);
+                vals_b[k] = sb * inv_f - (sp.c0[2] + sp.cx[2] * nx + sp.cy[2] * ny);
             }
 
-            dst_row[3 * c + 0] = static_cast<float>(sum_r * inv_w_sum);
-            dst_row[3 * c + 1] = static_cast<float>(sum_g * inv_w_sum);
-            dst_row[3 * c + 2] = static_cast<float>(sum_b * inv_w_sum);
+            dst_row[3 * c + 0] = static_cast<float>(winsorized_weighted_combine(vals_r, norm_w.data(), n_act, ref_sky_med[0]));
+            dst_row[3 * c + 1] = static_cast<float>(winsorized_weighted_combine(vals_g, norm_w.data(), n_act, ref_sky_med[1]));
+            dst_row[3 * c + 2] = static_cast<float>(winsorized_weighted_combine(vals_b, norm_w.data(), n_act, ref_sky_med[2]));
         }
     }
 
