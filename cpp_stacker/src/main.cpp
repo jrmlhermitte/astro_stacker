@@ -104,7 +104,12 @@ int main(int argc, char** argv) {
 
             std::vector<float> lum;
             astro::compute_luminance_from_rgb(rgb_frames[i].data(), astro::ACTIVE_H, astro::ACTIVE_W, lum);
-            qualities[i] = astro::analyze_frame_stars(lum, i, clean_lights[i].meta.filename);
+            qualities[i] = astro::analyze_frame_stars(
+                lum,
+                i,
+                clean_lights[i].meta.filename,
+                clean_lights[i].meta.valid_active_rows
+            );
         }
         const auto t3 = std::chrono::steady_clock::now();
 

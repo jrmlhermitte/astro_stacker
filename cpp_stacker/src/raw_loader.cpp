@@ -135,6 +135,7 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
     uint16_t vmax = 0;
     const int ob_cols = OB_LEFT_END - OB_LEFT_START;
     std::vector<uint16_t> row_ob_buf(ob_cols);
+    int contiguous_clean_rows = ACTIVE_H;
 
     for (int r = 0; r < ACTIVE_H; ++r) {
         const uint16_t* raw_row = raw + static_cast<size_t>(r + TOP_MARGIN) * RAW_W;
@@ -151,12 +152,23 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
 
         uint16_t* dst_row = out_frame.active_cfa.data() + static_cast<size_t>(r) * ACTIVE_W;
         const uint16_t* act_row = raw_row + LEFT_MARGIN;
+        uint16_t row_min = 65535;
+        uint16_t row_max = 0;
+        int underflow_cnt = 0;
         for (int c = 0; c < ACTIVE_W; ++c) {
             const uint16_t v = act_row[c];
             dst_row[c] = v;
             hist_act[v] += 1;
             if (v < vmin) vmin = v;
             if (v > vmax) vmax = v;
+            if (v < row_min) row_min = v;
+            if (v > row_max) row_max = v;
+            if (v < 1750) ++underflow_cnt;
+        }
+        if (contiguous_clean_rows == ACTIVE_H) {
+            if (row_max > 16383 || underflow_cnt > 8) {
+                contiguous_clean_rows = r;
+            }
         }
     }
 
@@ -166,6 +178,41 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
     meta.ob_left_median = exact_u16_quantile_from_hist(
         hist_ob.data(), static_cast<size_t>(ACTIVE_H) * ob_cols, 0.50
     );
+
+    const bool full_clean = (meta.data_error_count == 0) &&
+                            (meta.active_max <= 16383) &&
+                            (meta.active_p1 >= 1850.0) &&
+                            meta.cfa_is_rggb;
+
+    if (full_clean) {
+        meta.valid_active_rows = ACTIVE_H;
+        meta.is_clean = true;
+        meta.reject_reason.clear();
+        return true;
+    }
+
+    // Partial-row salvage gate: if >= 80% of top active rows (>= 2285 rows) are completely free of
+    // ADC overflow/underflow before end-of-stream bitstream corruption, salvage [0, safe_rows) with
+    // an 8-row safety margin so MHC 5x5 + Lanczos-3 stencils never touch corrupted rows.
+    if (meta.cfa_is_rggb && contiguous_clean_rows >= 2285) {
+        std::vector<uint32_t> top_hist(65536, 0);
+        const int safe_rows = contiguous_clean_rows - 8;
+        for (int r = 0; r < safe_rows; ++r) {
+            const uint16_t* row_p = out_frame.active_cfa.data() + static_cast<size_t>(r) * ACTIVE_W;
+            for (int c = 0; c < ACTIVE_W; ++c) {
+                top_hist[row_p[c]] += 1;
+            }
+        }
+        const double top_p1 = exact_u16_quantile_from_hist(
+            top_hist.data(), static_cast<size_t>(safe_rows) * ACTIVE_W, 0.01
+        );
+        if (top_p1 >= 1850.0) {
+            meta.valid_active_rows = safe_rows;
+            meta.is_clean = true;
+            meta.reject_reason = "partial_salvage_rows=" + std::to_string(safe_rows);
+            return true;
+        }
+    }
 
     std::ostringstream oss;
     if (meta.data_error_count > 0) {
@@ -182,13 +229,12 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
         oss << "non_rggb_cfa;";
     }
 
+    meta.valid_active_rows = 0;
     meta.reject_reason = oss.str();
-    meta.is_clean = meta.reject_reason.empty();
-    if (!meta.is_clean) {
-        out_frame.active_cfa.clear();
-        out_frame.active_cfa.shrink_to_fit();
-    }
-    return meta.is_clean;
+    meta.is_clean = false;
+    out_frame.active_cfa.clear();
+    out_frame.active_cfa.shrink_to_fit();
+    return false;
 }
 
 void load_cr2_directory(

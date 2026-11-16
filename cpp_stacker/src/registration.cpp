@@ -194,6 +194,7 @@ std::vector<FrameTransform> register_all_frames(
         ft.filename = qualities[i].filename;
         ft.integrated = true;
         ft.weight = 1.0;
+        ft.valid_rows = qualities[i].valid_rows;
         ft.is_reference = (i == ref_index);
 
         if (i == ref_index) {

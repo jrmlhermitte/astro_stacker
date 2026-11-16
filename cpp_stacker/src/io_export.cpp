@@ -118,7 +118,8 @@ void write_transforms_json(
         ofs << "      \"filename\": \"" << t.filename << "\",\n";
         ofs << "      \"integrated\": " << (t.integrated ? "true" : "false") << ",\n";
         ofs << "      \"is_reference\": " << (t.is_reference ? "true" : "false") << ",\n";
-        ofs << "      \"weight\": " << t.weight << ",\n";
+        const double area_frac = static_cast<double>(std::clamp(t.valid_rows, 0, ACTIVE_H)) / ACTIVE_H;
+        ofs << "      \"weight\": " << (t.weight * area_frac) << ",\n";
         ofs << "      \"dx\": " << t.dx << ",\n";
         ofs << "      \"dy\": " << t.dy << ",\n";
         ofs << "      \"dtheta_deg\": " << t.dtheta_deg << ",\n";

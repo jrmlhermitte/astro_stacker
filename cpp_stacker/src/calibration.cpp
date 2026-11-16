@@ -43,14 +43,18 @@ std::vector<float> smooth_ob_row_pedestal(const RawSensorFrame& frame) {
 } // namespace
 
 std::vector<float> build_master_dark(const std::vector<RawSensorFrame>& clean_darks) {
-    if (clean_darks.empty()) {
-        throw std::runtime_error("No clean dark frames available to build master dark");
+    std::vector<const RawSensorFrame*> full_darks;
+    for (const auto& d : clean_darks) {
+        if (d.meta.valid_active_rows == ACTIVE_H) full_darks.push_back(&d);
+    }
+    if (full_darks.empty()) {
+        throw std::runtime_error("No full-frame clean dark frames available to build master dark");
     }
 
-    const int n_darks = static_cast<int>(clean_darks.size());
+    const int n_darks = static_cast<int>(full_darks.size());
     std::vector<std::vector<float>> ob_rows(n_darks);
     for (int i = 0; i < n_darks; ++i) {
-        ob_rows[i] = smooth_ob_row_pedestal(clean_darks[i]);
+        ob_rows[i] = smooth_ob_row_pedestal(*full_darks[i]);
     }
 
     std::vector<float> master_dark(ACTIVE_PIXELS, 0.0f);
@@ -69,7 +73,7 @@ std::vector<float> build_master_dark(const std::vector<RawSensorFrame>& clean_da
             for (int c = 0; c < ACTIVE_W; ++c) {
                 const size_t idx = row_off + c;
                 for (int i = 0; i < n_darks; ++i) {
-                    vals[i] = static_cast<float>(clean_darks[i].active_cfa[idx]) - ob_rows[i][r];
+                    vals[i] = static_cast<float>(full_darks[i]->active_cfa[idx]) - ob_rows[i][r];
                 }
 
                 work = vals;

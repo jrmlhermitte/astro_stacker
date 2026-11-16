@@ -167,11 +167,14 @@ bool solve_7x7_symmetric(double A[7][7], const double b[7], double x[7]) {
 FrameQuality analyze_frame_stars(
     const std::vector<float>& lum,
     int frame_index,
-    const std::string& filename
+    const std::string& filename,
+    int valid_rows
 ) {
     FrameQuality fq;
     fq.frame_index = frame_index;
     fq.filename = filename;
+    fq.valid_rows = std::clamp(valid_rows, 0, ACTIVE_H);
+    const int y_max_roi = std::max(ROI_MARGIN, fq.valid_rows - ROI_MARGIN);
 
     std::vector<float> bg_map;
     double sky_med = 0.0;
@@ -200,7 +203,7 @@ FrameQuality analyze_frame_stars(
     qy.reserve(2048);
     qx.reserve(2048);
 
-    for (int r0 = ROI_MARGIN; r0 < ACTIVE_H - ROI_MARGIN; ++r0) {
+    for (int r0 = ROI_MARGIN; r0 < y_max_roi; ++r0) {
         const size_t row_off = static_cast<size_t>(r0) * ACTIVE_W;
         for (int c0 = ROI_MARGIN; c0 < ACTIVE_W - ROI_MARGIN; ++c0) {
             const size_t idx0 = row_off + c0;
@@ -228,7 +231,7 @@ FrameQuality analyze_frame_stars(
                     px = cx;
                 }
                 for (int ny = cy - 1; ny <= cy + 1; ++ny) {
-                    if (ny < ROI_MARGIN || ny >= ACTIVE_H - ROI_MARGIN) continue;
+                    if (ny < ROI_MARGIN || ny >= y_max_roi) continue;
                     for (int nx = cx - 1; nx <= cx + 1; ++nx) {
                         if (nx < ROI_MARGIN || nx >= ACTIVE_W - ROI_MARGIN) continue;
                         const size_t nidx = static_cast<size_t>(ny) * ACTIVE_W + nx;
@@ -244,7 +247,7 @@ FrameQuality analyze_frame_stars(
             const int area = static_cast<int>(qy.size());
             if (area < 5 || area > 2500) continue;
             if (pval >= 10500.0f) continue;
-            if (py < ROI_MARGIN || py >= ACTIVE_H - ROI_MARGIN ||
+            if (py < ROI_MARGIN || py >= y_max_roi ||
                 px < ROI_MARGIN || px >= ACTIVE_W - ROI_MARGIN) {
                 continue;
             }
@@ -478,6 +481,7 @@ int select_sharpest_reference_frame(const std::vector<FrameQuality>& qualities) 
     };
 
     for (int i = 0; i < static_cast<int>(qualities.size()); ++i) {
+        if (qualities[i].valid_rows < ACTIVE_H) continue; // Reference must always be 100% full-frame
         if (qualities[i].star_count >= min_healthy_stars && qualities[i].median_eccentricity <= med_ecc + 1e-9) {
             if (best_idx < 0 || is_better(i, best_idx)) {
                 best_idx = i;

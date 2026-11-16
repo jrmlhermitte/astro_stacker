@@ -9,7 +9,8 @@ namespace astro {
 FrameQuality analyze_frame_stars(
     const std::vector<float>& lum,
     int frame_index,
-    const std::string& filename
+    const std::string& filename,
+    int valid_rows = ACTIVE_H
 );
 
 // Automatically select the sharpest clean exposure as the registration reference frame

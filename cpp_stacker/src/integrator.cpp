@@ -194,7 +194,7 @@ SkyDiffPlane fit_frame_sky_diff_plane(
                     const double rx = static_cast<double>(c) - cx_center;
                     const double fx = cx_center + (tr.m00 * rx + tr.m01 * ry + tr.tx);
                     const double fy = cy_center + (tr.m10 * rx + tr.m11 * ry + tr.ty);
-                    if (fx < 8.0 || fx >= ACTIVE_W - 8.0 || fy < 8.0 || fy >= ACTIVE_H - 8.0) {
+                    if (fx < 8.0 || fx >= ACTIVE_W - 8.0 || fy < 8.0 || fy >= tr.valid_rows - 8.0) {
                         continue;
                     }
                     double sr = 0.0, sg = 0.0, sb = 0.0;
@@ -404,30 +404,43 @@ std::vector<float> integrate_frames(
         double vals_r[64];
         double vals_g[64];
         double vals_b[64];
+        double pix_w[64];
 
         for (int c = 0; c < ACTIVE_W; ++c) {
             const double rx = static_cast<double>(c) - cx_center;
             const double nx = rx * inv_w_norm;
 
+            int m = 0;
+            double w_tot = 0.0;
             for (int k = 0; k < n_act; ++k) {
                 const int f = active_indices[k];
                 const auto& tr = transforms[f];
                 const double fx = cx_center + (tr.m00 * rx + tr.m01 * ry + tr.tx);
                 const double fy = cy_center + (tr.m10 * rx + tr.m11 * ry + tr.ty);
+                if (fy >= static_cast<double>(tr.valid_rows - 4)) {
+                    continue;
+                }
 
                 double sr = 0.0, sg = 0.0, sb = 0.0;
                 sample_rgb_lanczos3_2d(rgb_frames[f].data(), fx, fy, sr, sg, sb);
 
                 const double inv_f = 1.0 / std::max(0.25, tr.flux_scale);
                 const auto& sp = sky_planes[f];
-                vals_r[k] = sr * inv_f - (sp.c0[0] + sp.cx[0] * nx + sp.cy[0] * ny);
-                vals_g[k] = sg * inv_f - (sp.c0[1] + sp.cx[1] * nx + sp.cy[1] * ny);
-                vals_b[k] = sb * inv_f - (sp.c0[2] + sp.cx[2] * nx + sp.cy[2] * ny);
+                vals_r[m] = sr * inv_f - (sp.c0[0] + sp.cx[0] * nx + sp.cy[0] * ny);
+                vals_g[m] = sg * inv_f - (sp.c0[1] + sp.cx[1] * nx + sp.cy[1] * ny);
+                vals_b[m] = sb * inv_f - (sp.c0[2] + sp.cx[2] * nx + sp.cy[2] * ny);
+                pix_w[m] = tr.weight;
+                w_tot += tr.weight;
+                ++m;
             }
 
-            dst_row[3 * c + 0] = static_cast<float>(winsorized_weighted_combine(vals_r, norm_w.data(), n_act, ref_sky_med[0]));
-            dst_row[3 * c + 1] = static_cast<float>(winsorized_weighted_combine(vals_g, norm_w.data(), n_act, ref_sky_med[1]));
-            dst_row[3 * c + 2] = static_cast<float>(winsorized_weighted_combine(vals_b, norm_w.data(), n_act, ref_sky_med[2]));
+            if (m > 0 && w_tot > 0.0) {
+                const double inv_wt = 1.0 / w_tot;
+                for (int j = 0; j < m; ++j) pix_w[j] *= inv_wt;
+                dst_row[3 * c + 0] = static_cast<float>(winsorized_weighted_combine(vals_r, pix_w, m, ref_sky_med[0]));
+                dst_row[3 * c + 1] = static_cast<float>(winsorized_weighted_combine(vals_g, pix_w, m, ref_sky_med[1]));
+                dst_row[3 * c + 2] = static_cast<float>(winsorized_weighted_combine(vals_b, pix_w, m, ref_sky_med[2]));
+            }
         }
     }
 

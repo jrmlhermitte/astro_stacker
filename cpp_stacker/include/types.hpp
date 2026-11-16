@@ -34,6 +34,7 @@ struct RawFrameMeta {
     int flip_ignored = 0;
     bool cfa_is_rggb = false;
     bool is_clean = false;
+    int valid_active_rows = 0; // Number of contiguous uncorrupted active rows from top [0..ACTIVE_H]
     std::string reject_reason;
 };
 
@@ -56,6 +57,7 @@ struct DetectedStar {
 struct FrameQuality {
     int frame_index = -1;
     std::string filename;
+    int valid_rows = ACTIVE_H;
     double sky_median = 0.0;
     double sky_rms = 0.0;
     double median_fwhm_px = 999.0;
@@ -88,6 +90,7 @@ struct FrameTransform {
     double tx = 0.0;
     double ty = 0.0;
     double flux_scale = 1.0; // Photometric transparency/exposure ratio F_i relative to reference
+    int valid_rows = ACTIVE_H;
     int inlier_matches = 0;
     double residual_rms_px = 0.0;
 };
