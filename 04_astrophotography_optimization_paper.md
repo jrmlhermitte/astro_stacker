@@ -1,5 +1,6 @@
 # Autonomous Anti-Goodhart Evolution of a High-Performance C++20 Astrophotography Stacking Engine: From Full-Frame Correlation Failure Analysis to Out-of-Distribution Galactic Generalization
 
+**Author:** Julien Lhermitte (with Autonomous Algorithm-Optimization Harness: Carbon Orchestrator & Red-Team Swarm)  
 **Repository & Engine:** [`cpp_stacker/`](file:///home/julien/projects/astro_stacker/cpp_stacker) (`2,782` lines of C++20 / OpenMP / `LibRaw`, `262 KiB` native binary)  
 **Immutable Blind Referee:** [`scripts/evaluate.py`](file:///home/julien/projects/astro_stacker/scripts/evaluate.py) (`chmod 444`, `SHA-256: 971b62f072143eb6172cd804f85750b7c31c507fbd13879ed4d1a46b50c415f9`)  
 **Empirical Telemetry & Logs:** [`logs/dataset_manifest.json`](file:///home/julien/projects/astro_stacker/logs/dataset_manifest.json), [`logs/reference_selection.json`](file:///home/julien/projects/astro_stacker/logs/reference_selection.json), [`logs/torture_test_results.json`](file:///home/julien/projects/astro_stacker/logs/torture_test_results.json), [`logs/metrics.jsonl`](file:///home/julien/projects/astro_stacker/logs/metrics.jsonl), [`logs/03_iteration_log.md`](file:///home/julien/projects/astro_stacker/logs/03_iteration_log.md)
