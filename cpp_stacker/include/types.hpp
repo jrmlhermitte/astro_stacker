@@ -87,6 +87,7 @@ struct FrameTransform {
     double m11 = 1.0;
     double tx = 0.0;
     double ty = 0.0;
+    double flux_scale = 1.0; // Photometric transparency/exposure ratio F_i relative to reference
     int inlier_matches = 0;
     double residual_rms_px = 0.0;
 };

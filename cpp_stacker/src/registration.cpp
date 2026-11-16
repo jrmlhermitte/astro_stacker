@@ -197,6 +197,7 @@ std::vector<FrameTransform> register_all_frames(
         ft.is_reference = (i == ref_index);
 
         if (i == ref_index) {
+            ft.flux_scale = 1.0;
             ft.inlier_matches = static_cast<int>(ref_pool.size());
             transforms[i] = ft;
             continue;
@@ -351,6 +352,39 @@ std::vector<FrameTransform> register_all_frames(
             }
         }
 
+        // Compute relative photometric flux ratio F_i = median(flux_tgt / flux_ref) on final inliers
+        std::vector<double> flux_ratios;
+        flux_ratios.reserve(ref_pool.size());
+        for (const auto& rs : ref_pool) {
+            if (rs.flux <= 0.0) continue;
+            const double rx = rs.x - CX_CENTER;
+            const double ry = rs.y - CY_CENTER;
+            const double pred_x = CX_CENTER + (best_model.a * rx - best_model.b * ry + best_model.tx);
+            const double pred_y = CY_CENTER + (best_model.b * rx + best_model.a * ry + best_model.ty);
+
+            double min_d = std::numeric_limits<double>::infinity();
+            int best_j = -1;
+            for (int j = 0; j < static_cast<int>(tgt_pool.size()); ++j) {
+                const double d = std::hypot(tgt_pool[j].x - pred_x, tgt_pool[j].y - pred_y);
+                if (d < min_d) {
+                    min_d = d;
+                    best_j = j;
+                }
+            }
+            if (best_j >= 0 && min_d <= 2.2 && tgt_pool[best_j].flux > 0.0) {
+                const double rat = tgt_pool[best_j].flux / rs.flux;
+                if (rat > 0.3 && rat < 3.0) {
+                    flux_ratios.push_back(rat);
+                }
+            }
+        }
+        double flux_scale = 1.0;
+        if (flux_ratios.size() >= 6) {
+            const size_t mid = flux_ratios.size() / 2;
+            std::nth_element(flux_ratios.begin(), flux_ratios.begin() + mid, flux_ratios.end());
+            flux_scale = std::clamp(flux_ratios[mid], 0.5, 2.0);
+        }
+
         const double scale = std::hypot(best_model.a, best_model.b);
         const double dtheta_rad = std::atan2(best_model.b, best_model.a);
 
@@ -364,9 +398,38 @@ std::vector<FrameTransform> register_all_frames(
         ft.m11 = best_model.a;
         ft.tx = best_model.tx;
         ft.ty = best_model.ty;
+        ft.flux_scale = flux_scale;
         ft.inlier_matches = final_inliers;
         ft.residual_rms_px = (final_inliers > 0) ? std::sqrt(final_r2_sum / final_inliers) : 0.0;
         transforms[i] = ft;
+    }
+
+    // Compute optimal PSF/SNR weights: w_i proportional to F_i^2 / (sigma_bg_i^2 * FWHM_eff_i^3 * (1 + 0.5*ecc_i^2))
+    // normalized so mean(w_i) = 1.0 and clamped to [0.35, 1.85] to maintain high Kish effective sample size.
+    std::vector<double> raw_w(n_frames, 1.0);
+    double med_w_buf_sum = 0.0;
+    for (int i = 0; i < n_frames; ++i) {
+        const double f_i = transforms[i].flux_scale;
+        const double sig_i = std::max(1.0, qualities[i].sky_rms);
+        const double fwhm_eff_i = std::max(
+            2.5,
+            0.65 * qualities[i].median_fwhm_px + 0.35 * qualities[i].corner_fwhm_px
+        );
+        const double ecc_i = std::clamp(qualities[i].median_eccentricity, 0.0, 0.99);
+        raw_w[i] = (f_i * f_i) / (sig_i * sig_i * std::pow(fwhm_eff_i, 3.0) * (1.0 + 0.5 * ecc_i * ecc_i));
+        med_w_buf_sum += raw_w[i];
+    }
+    const double mean_raw = (n_frames > 0) ? (med_w_buf_sum / n_frames) : 1.0;
+    double norm_sum = 0.0;
+    for (int i = 0; i < n_frames; ++i) {
+        transforms[i].weight = std::clamp(raw_w[i] / std::max(1e-30, mean_raw), 0.35, 1.85);
+        norm_sum += transforms[i].weight;
+    }
+    if (norm_sum > 0.0) {
+        const double scale_w = static_cast<double>(n_frames) / norm_sum;
+        for (int i = 0; i < n_frames; ++i) {
+            transforms[i].weight *= scale_w;
+        }
     }
 
     return transforms;
