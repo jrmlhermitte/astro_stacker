@@ -208,3 +208,7 @@ instance/
 # Archives
 *.zip
 *.tar.gz
+
+# Evaluation & telemetry logs (protected across git rollbacks)
+logs/
+
