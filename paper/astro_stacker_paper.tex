@@ -65,15 +65,15 @@
 
 \subsection{Analytical Formulation of the 2020 Full-Frame Correlation Estimator}
 
-Let $I_m(\bm{x})$ denote the raw intensity recorded at discrete sensor pixel $\bm{x} \in \Omega \subset \mathbb{Z}^2$ ($|\Omega| = N_{\text{pix}} = 4290 \times 2856 = 12{,}252{,}240$) in exposure $m \in \{1, \dots, M\}$. Decompose each raw light frame into deterministic dark current plus readout pedestal $\bar{\eta}(\bm{x})$, zero-mean frame-specific readout and dark shot noise $\delta\eta_m(\bm{x})$, optical vignetting times sky background $V(\bm{x}) B_m$, and the true celestial signal $S(\bm{x} - \bm{u}_m(\bm{x}))$ displaced by frame-dependent astrometric motion $\bm{u}_m(\bm{x})$:
+Let $I_m(\bm{x})$ denote the raw intensity recorded at discrete sensor pixel $\bm{x} \in \Omega \subset \mathbb{Z}^2$ ($|\Omega| = N_{\text{pix}} = 4290 \times 2856 = 12{,}252{,}240$) in exposure $m \in \{1, \dots, M\}$. Decompose each raw light frame into unvignetted detector dark current plus readout pedestal $\bar{\eta}(\bm{x})$, zero-mean frame-specific readout and dark shot noise $\delta\eta_m(\bm{x})$, upstream optical transmission (vignetting) efficiency $V(\bm{x}) \in (0, 1]$ multiplying \emph{all} incident photons---both sky background $B_m$ and the true celestial signal $S(\bm{x} - \bm{u}_m(\bm{x}))$ displaced by frame-dependent astrometric motion $\bm{u}_m(\bm{x})$---and zero-mean photon shot noise $\delta s_m(\bm{x})$:
 \begin{equation}
   \begin{aligned}
-    I_m(\bm{x}) &= \bar{\eta}(\bm{x}) + \delta\eta_m(\bm{x}) + V(\bm{x}) B_m \\
-                &\quad + S\big(\bm{x} - \bm{u}_m(\bm{x})\big) + \delta s_m(\bm{x}),
+    I_m(\bm{x}) &= \bar{\eta}(\bm{x}) + \delta\eta_m(\bm{x}) \\
+                &\quad + V(\bm{x})\Big[B_m + S\big(\bm{x} - \bm{u}_m(\bm{x})\big)\Big] + \delta s_m(\bm{x}),
   \end{aligned}
   \label{eq:raw_model}
 \end{equation}
-where $\delta s_m(\bm{x})$ is zero-mean photon shot noise from the sky and astronomical sources. Given an empirical master dark $\tilde{\bar{\eta}}(\bm{x}) = \frac{1}{N_D} \sum_{d=1}^{N_D} D_d(\bm{x})$ formed from $N_D$ dark frames at sensor temperature $T_D$ and a binary bad-pixel keep-mask $M(\bm{x}) \in \{0, 1\}$, the 2020 Python codebase (\code{spatial\_\allowbreak correlator.py}) attempted to estimate inter-frame shifts $\bm{k} \in \mathbb{Z}^2$ by maximizing the masked, mean-subtracted spatial cross-correlation:
+where photon shot-noise variance scales with the vignetted incident flux, $\operatorname{Var}\big(\delta s_m(\bm{x})\big) \propto V(\bm{x})\big[B_m + S(\bm{x} - \bm{u}_m(\bm{x}))\big]$, whereas internal detector dark current and readout noise $\bar{\eta}(\bm{x}) + \delta\eta_m(\bm{x})$ are unvignetted. Given an empirical master dark $\tilde{\bar{\eta}}(\bm{x}) = \frac{1}{N_D} \sum_{d=1}^{N_D} D_d(\bm{x})$ formed from $N_D$ dark frames at sensor temperature $T_D$ and a binary bad-pixel keep-mask $M(\bm{x}) \in \{0, 1\}$, the 2020 Python codebase (\code{spatial\_\allowbreak correlator.py}) attempted to estimate inter-frame shifts $\bm{k} \in \mathbb{Z}^2$ by maximizing the masked, mean-subtracted spatial cross-correlation:
 \begin{equation}
   \begin{aligned}
     C_{\bm{k}}^{(i,j)} &= \frac{1}{N_{\bm{k}}} \sum_{\bm{x} \in \Omega_{\bm{k}}} M(\bm{x})\,M(\bm{x}+\bm{k})\,\tilde{J}_i(\bm{x})\,\tilde{J}_j(\bm{x}+\bm{k}), \\
@@ -81,7 +81,7 @@ where $\delta s_m(\bm{x})$ is zero-mean photon shot noise from the sky and astro
   \end{aligned}
   \label{eq:spatial_corr}
 \end{equation}
-where $\tilde{J}_m(\bm{x}) = \big(I_m(\bm{x}) - \tilde{\bar{\eta}}(\bm{x})\big) - \mu_m$ subtracts the master dark and scalar frame mean $\mu_m$, and consecutive-pair correlations were ensemble-averaged ($\langle C_{\bm{k}} \rangle = \frac{1}{M-1} \sum_{i=1}^{M-1} C_{\bm{k}}^{(i, i+1)}$) under the assumption of constant drift velocity $\bm{u}_{i+1} - \bm{u}_i \equiv \Delta\bm{u}$.
+where $\tilde{J}_m(\bm{x}) = \big(I_m(\bm{x}) - \tilde{\bar{\eta}}(\bm{x})\big) - \mu_m$ subtracts the master dark and scalar frame mean $\mu_m = \overline{V} B_m + \overline{V S}$, and consecutive-pair correlations were ensemble-averaged ($\langle C_{\bm{k}} \rangle = \frac{1}{M-1} \sum_{i=1}^{M-1} C_{\bm{k}}^{(i, i+1)}$) under the assumption of constant drift velocity $\bm{u}_{i+1} - \bm{u}_i \equiv \Delta\bm{u}$.
 
 \subsection{Five Fundamental Physical Failure Modes on Real DSLR Data}
 
@@ -89,24 +89,25 @@ Expanding $\mathbb{E}\big[C_{\bm{k}}^{(i,j)}\big]$ over the stochastic noise rea
 \begin{equation}
   \begin{aligned}
     \mathbb{E}\big[C_{\bm{k}}^{(i,j)}\big]
-    &= \underbrace{\delta_{\bm{k},\bm{0}} \left(\frac{\sigma_D^2}{N_D} + \frac{1}{N_{\bm{0}}}\sum_{\bm{x}} \Delta\bar{\eta}_{\text{th},i}(\bm{x})\,\Delta\bar{\eta}_{\text{th},j}(\bm{x})\right)}_{\text{(I) Coherent Zero-Lag Dark Residual Spike}} \\
+    &= \underbrace{\delta_{\bm{k},\bm{0}} \left(\frac{\sigma_D^2}{N_D} + \frac{1}{N_{\bm{0}}}\sum_{\bm{x}} \Delta\bar{\eta}_{\text{th},i}(\bm{x})\,\Delta\bar{\eta}_{\text{th},j}(\bm{x})\right)}_{\text{(I) Unvignetted Zero-Lag Dark Residual Spike}} \\
     &\quad + \underbrace{B_i B_j \, R_{\tilde{V}}(\bm{k})}_{\substack{\text{(II) Stationary}\\\text{Vignetting Hill}}}
-     + \underbrace{R_{S}^{(i,j)}(\bm{k} - \Delta\bm{u}_{ij})}_{\substack{\text{(III--V) Attenuated \&}\\\text{Smeared Stellar Signal}}}.
+     + \underbrace{R_{VS}^{(i,j)}(\bm{k} - \Delta\bm{u}_{ij})}_{\substack{\text{(III--V) } V(\bm{x})^2\text{-Weighted}\\\text{\& Smeared Stellar Signal}}},
   \end{aligned}
   \label{eq:corr_expectation}
 \end{equation}
+where $R_{VS}^{(i,j)}$ weights each stellar cross-term by $V(\bm{x})V(\bm{x}+\bm{k})$.
 
 \begin{enumerate}
   \item \textbf{Coherent Finite Master-Dark Residual \& Thermal Mismatch at Zero Lag ($\bm{k} = \bm{0}$):}
-  Subtracting the \emph{same} $N_D$-frame master dark ($N_D = 18$, $\sigma_D = 23.07\text{\,ADU}$) from both $I_i$ and $I_j$ imprints the identical static error $-\epsilon_D(\bm{x}) + \Delta\bar{\eta}_{\text{th}}(\bm{x})$ onto every calibrated light exposure, where $\Delta\bar{\eta}_{\text{th}}(\bm{x}) = \bar{\eta}_{T_{\text{light}}}(\bm{x}) - \bar{\eta}_{18\,^\circ\text{C}}(\bm{x})$ is the uncompensated thermal dark-current excess at $19\text{--}34\,^\circ\text{C}$. At zero lag $\bm{k} = \bm{0}$, these errors multiply \emph{in phase} across all $1.225 \times 10^7$ pixels:
+  Subtracting the \emph{same} $N_D$-frame master dark ($N_D = 18$, $\sigma_D = 23.07\text{\,ADU}$) from both $I_i$ and $I_j$ imprints the identical static error $-\epsilon_D(\bm{x}) + \Delta\bar{\eta}_{\text{th}}(\bm{x})$ onto every calibrated light exposure, where $\Delta\bar{\eta}_{\text{th}}(\bm{x}) = \bar{\eta}_{T_{\text{light}}}(\bm{x}) - \bar{\eta}_{18\,^\circ\text{C}}(\bm{x})$ is the uncompensated thermal dark-current excess at $19\text{--}34\,^\circ\text{C}$. At zero lag $\bm{k} = \bm{0}$, these unvignetted detector errors multiply \emph{in phase} across all $1.225 \times 10^7$ pixels:
   \begin{equation}
     \Delta C_{\bm{0}}^{\text{dark}} \ge \frac{\sigma_D^2}{N_D} = \frac{(23.07)^2}{18} \approx 29.57\text{\,ADU}^2,
     \label{eq:dark_zero_lag}
   \end{equation}
   plus warm-pixel variance ($\sim 15\text{--}45\text{\,ADU}^2$). Crucially, \textbf{ensemble averaging $\langle C_{\bm{k}} \rangle$ across $M-1$ frame pairs provides zero attenuation of $\Delta C_{\bm{0}}^{\text{dark}}$} because $\epsilon_D(\bm{x})$ is deterministic across the entire light stack once $\tilde{\bar{\eta}}$ is fixed.
 
-  \item \textbf{Stationary Optical Vignetting Pedestal ($R_{\tilde{V}}(\bm{k})$):}
-  Prime-focus Newtonian illumination $V(\bm{x})$ drops radially by $\sim 18\text{--}22\%$ from optical center to APS-C corners. Scalar mean subtraction $\mu_m = \overline{V} B_m + \overline{S}$ leaves the zero-mean spatial bowl $\tilde{V}(\bm{x}) B_m = (V(\bm{x}) - \overline{V}) B_m$ ($\text{RMS} \approx 12\text{--}16\text{\,ADU}$, variance $\sim 144\text{--}256\text{\,ADU}^2$) locked to sensor coordinates $(0, 0)$ across $100\%$ of pixels, generating a broad correlation dome peaked at $\bm{k} = \bm{0}$ that swamps stellar cross-terms.
+  \item \textbf{Stationary Optical Vignetting Pedestal ($R_{\tilde{V}}(\bm{k})$) \& $V(\bm{x})^2$ Off-Axis Stellar Suppression:}
+  Prime-focus illumination $V(\bm{x})$ drops radially from $1.00$ at the optical axis to $\approx 0.64$ in the APS-C corners ($\sim 18\text{--}36\%$ radial falloff across the field). Scalar mean subtraction $\mu_m = \overline{V} B_m + \overline{V S}$ leaves the zero-mean spatial sky bowl $\tilde{V}(\bm{x}) B_m = (V(\bm{x}) - \overline{V}) B_m$ ($\text{RMS} \approx 12\text{--}16\text{\,ADU}$, variance $\sim 144\text{--}256\text{\,ADU}^2$) locked to sensor coordinates $(0, 0)$ across $100\%$ of pixels, generating a broad correlation dome peaked at $\bm{k} = \bm{0}$. Simultaneously, because $V(\bm{x})$ attenuates $S$ in both exposures, $R_{VS}^{(i,j)}$ weights stellar cross-terms by $V(\bm{x})V(\bm{x}+\bm{k}) \approx V(\bm{x})^2$ (falling to $0.64^2 \approx 0.41$ near the corners), quadratically suppressing off-axis stars relative to the unvignetted zero-lag dark-residual spike $\Delta C_{\bm{0}}^{\text{dark}}$.
 
   \item \textbf{Extreme Point-Source Sparsity ($<0.5\%$ Pixel Occupancy):}
   Across \code{ring\_set} (\code{105} single-frame $5\sigma$ stars of median $\text{FWHM} = 9.34\text{\,px}$), stellar cores above $2\sigma_{\text{bg}}$ occupy $\approx 105 \times \pi (8\text{\,px})^2 \approx 2.1 \times 10^4$ pixels---just \textbf{$0.17\%$} of the $1.225 \times 10^7$-pixel sensor. In a full-frame inner product, $99.83\%$ of pixels inject pure sky shot noise ($\sigma_{\text{bg}} \approx 28.0\text{\,ADU}$), readout noise, vignetting, and fixed-pattern dark residuals while contributing zero astrometric Fisher information.
@@ -627,7 +628,7 @@ Every iteration proposed a single atomic hypothesis on \code{ring\_set} + \code{
   Even on \code{ring\_set}'s modest $0.021^\circ$ rotation span, 4-DOF alignment sharpened \code{corner\_fwhm\_px} by \code{-0.230\,px} ($\code{15.6046} \to \code{15.3746\,px}$).
 
   \item \textbf{Differential 1st-Degree Sky-Plane Equalization \& Optimal PSF/SNR Weighting (\code{Iter 6}, \code{+0.9402}):}
-  After estimating each frame's stellar throughput scale $F_i = \operatorname{median}_{k}(F_{i,k}/F_{\text{ref},k})$, \code{integrator.cpp} fits a \textbf{3-parameter 1st-degree polynomial plane} $\Delta P_i^{(c)}(n_x, n_y) = c_{0,i}^{(c)} + c_{x,i}^{(c)} n_x + c_{y,i}^{(c)} n_y$ via 3-pass Huber IRLS to $96\times 96$ block medians of the \emph{astrometrically aligned difference} $\frac{1}{F_i} I_i^{(c)}(\bm{T}_i\bm{x}) - I_{\text{ref}}^{(c)}(\bm{x})$. Because stationary astrophysical emission ($S(\bm{x})$, including M57 and M31's entire disk) cancels identically in $\frac{1}{F_i}I_i - I_{\text{ref}}$, $\Delta P_i^{(c)}$ removes strictly time-varying skyglow pedestals and linear gradients (\code{extended\_\allowbreak flux\_\allowbreak preservation} rose to \code{0.994358}). Frames are weighted by point-source SNR and sharpness:
+  After estimating each frame's stellar throughput scale $F_i = \operatorname{median}_{k}(F_{i,k}/F_{\text{ref},k})$, \code{integrator.cpp} fits a \textbf{3-parameter 1st-degree polynomial plane} $\Delta P_i^{(c)}(n_x, n_y) = c_{0,i}^{(c)} + c_{x,i}^{(c)} n_x + c_{y,i}^{(c)} n_y$ via 3-pass Huber IRLS to $96\times 96$ block medians of the \emph{astrometrically aligned difference} $\frac{1}{F_i} I_i^{(c)}(\bm{T}_i\bm{x}) - I_{\text{ref}}^{(c)}(\bm{x})$. Because stationary astrophysical emission ($V(\bm{x})S(\bm{x})$, including M57 and M31's entire disk, up to negligible $<0.3\%$ vignetting gradient over $<50\text{\,px}$ shifts) cancels in $\frac{1}{F_i}I_i - I_{\text{ref}}$, $\Delta P_i^{(c)}$ removes strictly time-varying skyglow pedestals and linear gradients (\code{extended\_\allowbreak flux\_\allowbreak preservation} rose to \code{0.994358}). Frames are weighted by point-source SNR and sharpness:
   \begin{equation}
     \begin{aligned}
       w_i &\propto \frac{F_i^2}{\sigma_{\text{bg},i}^2 \cdot \text{FWHM}_{\text{eff},i}^3 \cdot \big(1 + 0.5\,e_i^2\big)}, \\
