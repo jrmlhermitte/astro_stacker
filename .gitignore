@@ -209,6 +209,13 @@ instance/
 *.zip
 *.tar.gz
 
-# Evaluation & telemetry logs (protected across git rollbacks)
+# Evaluation & telemetry logs & raw datasets (protected across git rollbacks)
 logs/
+pictures/
+astro_stacker_notes/
+
+# Track the final compiled paper PDF and figure plates inside paper/
+!paper/astro_stacker_paper.pdf
+!paper/figures/
+!paper/figures/*.png
 
