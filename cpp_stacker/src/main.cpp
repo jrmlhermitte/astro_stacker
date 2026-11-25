@@ -1,5 +1,6 @@
 #include "calibration.hpp"
 #include "demosaic.hpp"
+#include "flat_field.hpp"
 #include "integrator.hpp"
 #include "io_export.hpp"
 #include "raw_loader.hpp"
@@ -26,6 +27,11 @@ struct CliArgs {
     std::string out_fits;
     std::string out_tif;
     std::string out_preview_tif;
+    std::string flat_mode = "none";
+    std::string flat_chroma = "coupled";
+    std::string save_flat;
+    std::string load_flat;
+    int flat_iters = 3;
 };
 
 CliArgs parse_cli(int argc, char** argv) {
@@ -46,6 +52,11 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (key == "--out-fits") args.out_fits = next_val();
         else if (key == "--out-tif") args.out_tif = next_val();
         else if (key == "--out-preview-tif") args.out_preview_tif = next_val();
+        else if (key == "--flat-mode") args.flat_mode = next_val();
+        else if (key == "--flat-chroma") args.flat_chroma = next_val();
+        else if (key == "--save-flat") args.save_flat = next_val();
+        else if (key == "--load-flat") args.load_flat = next_val();
+        else if (key == "--flat-iters") args.flat_iters = std::stoi(next_val());
         else {
             throw std::runtime_error("Unknown CLI argument: " + key);
         }
@@ -55,7 +66,8 @@ CliArgs parse_cli(int argc, char** argv) {
         throw std::runtime_error(
             "Usage: astro_stacker --lights <dir> --darks <dir> --out-npy <file.npy> "
             "--out-transforms <transforms.json> [--out-fits <f.fits>] [--out-tif <f.tif>] "
-            "[--out-preview-tif <preview16.tif>]"
+            "[--out-preview-tif <preview16.tif>] [--flat-mode none|motes-self|motes-iter|full-self|full-iter] "
+            "[--flat-chroma coupled|per-channel] [--save-flat <f.npy>] [--load-flat <f.npy>]"
         );
     }
     return args;
@@ -139,6 +151,28 @@ int main(int argc, char** argv) {
         const std::vector<astro::FrameTransform> transforms = astro::register_all_frames(qualities, ref_idx);
         const auto t4 = std::chrono::steady_clock::now();
 
+        // 3b. Optional synthetic / empirical flat-field estimation & application in sensor coordinates
+        astro::FlatFieldStats flat_stats{};
+        const astro::FlatMode flat_mode_enum = astro::parse_flat_mode(args.flat_mode);
+        if (!args.load_flat.empty()) {
+            const std::vector<float> flat_rgb = astro::read_npy_f32_rgb(args.load_flat);
+            flat_stats = astro::summarize_flat_field(flat_rgb);
+            astro::apply_flat_field_inplace(rgb_frames, flat_rgb);
+        } else if (flat_mode_enum != astro::FlatMode::None) {
+            astro::FlatFieldConfig flat_cfg;
+            flat_cfg.mode = flat_mode_enum;
+            flat_cfg.chroma = astro::parse_flat_chroma_mode(args.flat_chroma);
+            flat_cfg.iter_passes = std::max(1, args.flat_iters);
+            const std::vector<float> flat_rgb = astro::estimate_synthetic_flat(
+                rgb_frames, transforms, flat_cfg, flat_stats
+            );
+            if (!args.save_flat.empty()) {
+                astro::write_npy_f32_rgb(args.save_flat, flat_rgb);
+            }
+            astro::apply_flat_field_inplace(rgb_frames, flat_rgb);
+        }
+        const auto t4b = std::chrono::steady_clock::now();
+
         // 4. Integrate stack
         const std::vector<float> stacked_rgb = astro::integrate_frames(rgb_frames, transforms);
         const auto t5 = std::chrono::steady_clock::now();
@@ -169,12 +203,25 @@ int main(int argc, char** argv) {
                   << "  \"selected_reference\": \"" << qualities[ref_idx].filename << "\",\n"
                   << "  \"ref_detected_stars\": " << qualities[ref_idx].star_count << ",\n"
                   << "  \"ref_moment_fwhm_px\": " << qualities[ref_idx].median_fwhm_px << ",\n"
+                  << "  \"flat_field\": {\n"
+                  << "    \"mode\": \"" << (args.load_flat.empty() ? args.flat_mode : "loaded") << "\",\n"
+                  << "    \"chroma\": \"" << args.flat_chroma << "\",\n"
+                  << "    \"v_min\": " << flat_stats.v_min << ",\n"
+                  << "    \"v_max\": " << flat_stats.v_max << ",\n"
+                  << "    \"v_median\": " << flat_stats.v_median << ",\n"
+                  << "    \"vig_center_to_corner_drop_pct\": " << flat_stats.vig_center_to_corner_drop_pct << ",\n"
+                  << "    \"mote_min_val\": " << flat_stats.mote_min_val << ",\n"
+                  << "    \"mote_rms_pct\": " << flat_stats.mote_rms_pct << ",\n"
+                  << "    \"vig_x0_px\": " << flat_stats.vig_x0_px << ",\n"
+                  << "    \"vig_y0_px\": " << flat_stats.vig_y0_px << "\n"
+                  << "  },\n"
                   << "  \"timing_s\": {\n"
                   << "    \"raw_unpack_validate\": " << elapsed_sec(t0, t1) << ",\n"
                   << "    \"master_dark\": " << elapsed_sec(t1, t2) << ",\n"
                   << "    \"calibrate_demosaic_detect\": " << elapsed_sec(t2, t3) << ",\n"
                   << "    \"registration\": " << elapsed_sec(t3, t4) << ",\n"
-                  << "    \"integration\": " << elapsed_sec(t4, t5) << ",\n"
+                  << "    \"flat_field\": " << elapsed_sec(t4, t4b) << ",\n"
+                  << "    \"integration\": " << elapsed_sec(t4b, t5) << ",\n"
                   << "    \"export_io\": " << elapsed_sec(t5, t6) << ",\n"
                   << "    \"total_wall_s\": " << elapsed_sec(t_total0, t6) << "\n"
                   << "  }\n"

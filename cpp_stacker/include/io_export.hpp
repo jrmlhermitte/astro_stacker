@@ -14,6 +14,13 @@ void write_npy_f32_rgb(
     int width = ACTIVE_W
 );
 
+// Load (ACTIVE_H, ACTIVE_W, 3) float32 array from standard NumPy .npy v1.0/v2.0 format
+std::vector<float> read_npy_f32_rgb(
+    const std::string& path,
+    int height = ACTIVE_H,
+    int width = ACTIVE_W
+);
+
 // Save per-frame registration transforms & weights in JSON format for scripts/evaluate.py
 void write_transforms_json(
     const std::string& path,

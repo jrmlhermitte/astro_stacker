@@ -11,6 +11,7 @@ SRCS := \
 	src/demosaic.cpp \
 	src/star_detector.cpp \
 	src/registration.cpp \
+	src/flat_field.cpp \
 	src/integrator.cpp \
 	src/io_export.cpp \
 	src/main.cpp

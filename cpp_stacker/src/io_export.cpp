@@ -91,6 +91,53 @@ void write_npy_f32_rgb(
     }
 }
 
+std::vector<float> read_npy_f32_rgb(
+    const std::string& path,
+    int height,
+    int width
+) {
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) {
+        throw std::runtime_error("Failed to open input .npy file: " + path);
+    }
+    unsigned char magic[8] = {};
+    ifs.read(reinterpret_cast<char*>(magic), 8);
+    if (!ifs || magic[0] != 0x93 || magic[1] != 'N' || magic[2] != 'U' ||
+        magic[3] != 'M' || magic[4] != 'P' || magic[5] != 'Y') {
+        throw std::runtime_error("Invalid .npy magic header in: " + path);
+    }
+    const int major = magic[6];
+    uint32_t header_len = 0;
+    if (major == 1) {
+        unsigned char hl[2] = {};
+        ifs.read(reinterpret_cast<char*>(hl), 2);
+        header_len = static_cast<uint32_t>(hl[0]) | (static_cast<uint32_t>(hl[1]) << 8);
+    } else if (major == 2) {
+        unsigned char hl[4] = {};
+        ifs.read(reinterpret_cast<char*>(hl), 4);
+        header_len = static_cast<uint32_t>(hl[0]) | (static_cast<uint32_t>(hl[1]) << 8) |
+                     (static_cast<uint32_t>(hl[2]) << 16) | (static_cast<uint32_t>(hl[3]) << 24);
+    } else {
+        throw std::runtime_error("Unsupported .npy version in: " + path);
+    }
+    std::string header(header_len, '\0');
+    ifs.read(header.data(), static_cast<std::streamsize>(header_len));
+    if (!ifs) {
+        throw std::runtime_error("Truncated .npy header in: " + path);
+    }
+    if (header.find("<f4") == std::string::npos && header.find("float32") == std::string::npos) {
+        throw std::runtime_error("Input .npy is not little-endian float32: " + path);
+    }
+
+    const size_t expected = static_cast<size_t>(height) * width * 3;
+    std::vector<float> out(expected, 1.0f);
+    ifs.read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(expected * sizeof(float)));
+    if (!ifs) {
+        throw std::runtime_error("Truncated .npy float32 payload in: " + path);
+    }
+    return out;
+}
+
 void write_transforms_json(
     const std::string& path,
     const std::string& ref_filename,
