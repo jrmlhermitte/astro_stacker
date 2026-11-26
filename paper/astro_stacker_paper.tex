@@ -974,7 +974,7 @@ Because \code{ring\_set} was acquired 3 minutes later on the identical optical t
 \section{Empirical Synthetic Flat-Field Estimation: Removing Radial Vignetting \& Optical Dust Motes Without Flats}
 \label{sec:flat_field}
 
-\subsection{Physical Separation of Sensor-Locked Transmission $V(\bm{x}) = V_{\text{vig}}(\bm{x}) \cdot V_{\text{motes}}(\bm{x})$}
+\subsection{Physical Separation of Sensor-Locked Transmission \texorpdfstring{$V(\bm{x}) = V_{\text{vig}}(\bm{x}) \cdot V_{\text{motes}}(\bm{x})$}{V(x) = V\_vig(x) V\_motes(x)}}
 
 In the absence of physical twilight or lightbox \code{flat\_set} exposures, dark-calibrated light frames remain governed by the multiplicative optical-train transmission field $V(\bm{x}) \in (0, 1]$ locked to physical sensor coordinates $\bm{x} = (x, y)$:
 \begin{equation}
@@ -1043,8 +1043,8 @@ Table~\ref{tab:flat_ablation} summarizes the full experimental progression acros
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{ring_4stage_progression.png}\\[0.5em]
-  \includegraphics[width=0.72\textwidth]{ring_4stage_m57_zoom.png}
+  \includegraphics[width=0.78\textwidth]{ring_4stage_progression.png}\\[0.4em]
+  \includegraphics[width=0.46\textwidth]{ring_4stage_m57_zoom.png}
   \caption{Four-stage end-to-end visual progression on the Ring Nebula (\code{ring\_set}, 19 exposures, identical per-panel \code{asinh} stretch). \textbf{Top:} full-field progression from blind unaligned average (1) through \code{iter-0-baseline} (2) and best pre-flat stack \code{b447079} (3) to the synthetic flat-field stack \code{iter\_06\_wiener\_final} (4, $7.0\times$ flatter sky, $100\%$ of $>2\%$ dust-mote area removed). \textbf{Bottom:} $360\times 360\text{\,px}$ core zoom centered on M57 at $(1577, 1312)$, illustrating the recovery of M57's crisp ionized ring structure and central white dwarf from the smeared unaligned average.}
   \label{fig:m57_4stage}
 \end{figure*}
