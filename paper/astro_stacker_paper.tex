@@ -883,26 +883,26 @@ Both \code{iter-0-baseline} and \code{iter-best-final} were executed on \code{an
         \node[anchor=south, font=\sffamily\footnotesize\bfseries, yshift=2pt] at (m31B.north)
           {(b) Session-Flat + Bulge-Pedestal Stretch \& Measured Isophotes};
 
-        % Overlay measured elliptical isophotes centered at M31 nucleus (2.801, 2.213), PA_sensor = -15 deg -> rotate=15 in TikZ
-        \begin{scope}[shift={(2.801, 2.213)}, rotate=15]
+        % Overlay measured elliptical isophotes centered at M31 nucleus (2.801, 2.213), PA_sensor = -7.8 deg -> rotate=7.8 in TikZ
+        \begin{scope}[shift={(2.801, 2.213)}, rotate=7.8]
           % Major and Minor axes
           \draw[cyan!75!white, densely dotted, line width=0.6pt] (-2.05, 0) -- (2.05, 0);
           \draw[amberaccent!70!yellow, densely dotted, line width=0.6pt] (0, -1.25) -- (0, 1.20);
-          % Three measured isophote ellipses: +60 ADU (250x150), +26 ADU (500x350), +11 ADU (900x650)
+          % Three measured isophote ellipses: +60 ADU (250x150), +26 ADU (450x300), +11 ADU (900x550)
           \draw[cyan!90!white, densely dashed, line width=0.7pt] (0,0) ellipse (0.349cm and 0.209cm);
-          \draw[cyan!90!white, densely dashed, line width=0.75pt] (0,0) ellipse (0.697cm and 0.488cm);
-          \draw[cyan!95!white, dashed, line width=0.85pt] (0,0) ellipse (1.255cm and 0.906cm);
-          \node[font=\sffamily\tiny\bfseries, text=cyan!95!white, rotate=15, anchor=south] at (1.30, 0.02)
-            {$\text{PA}_{\text{sensor}}{=}-15^\circ$};
+          \draw[cyan!90!white, densely dashed, line width=0.75pt] (0,0) ellipse (0.627cm and 0.418cm);
+          \draw[cyan!95!white, dashed, line width=0.85pt] (0,0) ellipse (1.255cm and 0.767cm);
+          \node[font=\sffamily\tiny\bfseries, text=cyan!95!white, rotate=7.8, anchor=south] at (1.30, 0.02)
+            {$\text{PA}_{\text{sensor}}{=}-7.8^\circ$};
         \end{scope}
 
         % Callout for Near-Side Dust Extinction on upper minor axis
-        \draw[-{Stealth[scale=0.7]}, yellow!95!white, line width=0.7pt] (1.35, 3.32) -- (2.52, 2.82);
+        \draw[-{Stealth[scale=0.7]}, yellow!95!white, line width=0.7pt] (1.35, 3.32) -- (2.68, 2.84);
         \node[anchor=north west, fill=black!75, draw=yellow!80!white, line width=0.4pt, rounded corners=1.5pt,
               font=\sffamily\tiny\bfseries, text=yellow!95!white, align=left, inner sep=2pt] at (0.12, 3.68)
-          {Near-side dust extinction\\($+8.6$ vs.\ $+21.2$\,ADU at $450$\,px)};
+          {Near-side dust extinction\\($+6.3$ vs.\ $+17.2$\,ADU at $450$\,px)};
         \node[anchor=south east, fill=black!70, rounded corners=1.5pt, font=\sffamily\tiny, text=cyan!85!white, align=right, inner sep=2pt]
-          at (5.68, 0.10) {Isophotes $+60, +26, +11$\,ADU\\$b/a = 0.60 \to 0.72$ ($2a = 1800$\,px)};
+          at (5.68, 0.10) {Isophotes $+60, +26, +11$\,ADU\\$b/a = 0.60 \to 0.67$ ($2a = 1800$\,px)};
       \end{scope}
 
       % Panel (c): Quantitative Major vs Minor Axis Surface-Brightness Profile
@@ -926,38 +926,38 @@ Both \code{iter-0-baseline} and \code{iter-best-final} were executed on \code{an
         title style={yshift=-1pt},
         legend style={font=\tiny, at={(0.97,0.97)}, anchor=north east, fill=white, fill opacity=0.9, draw=gray!50, inner sep=1.5pt}
       ]
-        % Major Axis (PA = -15 deg)
+        % Major Axis (fitted PA = -7.8 deg)
         \addplot[color=navy, line width=1.05pt, mark=*, mark size=0.9pt] coordinates {
-          (-1050,4.63) (-1000,4.18) (-950,4.74) (-900,5.39) (-850,6.67) (-800,8.97) (-750,10.45)
-          (-700,12.86) (-650,15.09) (-600,17.87) (-550,21.53) (-500,24.42) (-450,29.15) (-400,36.09)
-          (-350,41.26) (-300,50.83) (-250,64.26) (-200,86.54) (-150,114.92) (-100,162.68)
-          (100,166.6) (150,115.28) (200,85.08) (250,66.5) (300,54.12) (350,44.93) (400,37.76)
-          (450,32.2) (500,27.85) (550,23.86) (600,20.74) (650,18.08) (700,15.95) (750,14.4)
-          (800,13.5) (850,12.28) (900,11.24) (950,10.88) (1000,10.09) (1050,9.07)
+          (-1050,4.22) (-1000,4.11) (-950,6.41) (-900,7.4) (-850,8.33) (-800,9.06) (-750,10.11)
+          (-700,12.51) (-650,15.12) (-600,16.68) (-550,19.34) (-500,22.25) (-450,27.13) (-400,34.12)
+          (-350,40.19) (-300,49.03) (-250,62.13) (-200,83.01) (-150,111.83) (-100,158.01)
+          (100,164.33) (150,113.22) (200,82.95) (250,65.53) (300,51.84) (350,42.51) (400,35.44)
+          (450,29.69) (500,25.65) (550,21.69) (600,18.96) (650,17.39) (700,15.25) (750,13.64)
+          (800,11.58) (850,11.3) (900,11.03) (950,9.82) (1000,8.87) (1050,9.13)
         };
-        \addlegendentry{Major Axis ($\text{PA}{=}{-15^\circ}$)}
+        \addlegendentry{Major Axis ($\text{PA}{=}{-7.8^\circ}$)}
 
-        % Minor Axis (PA = +75 deg)
+        % Minor Axis (fitted PA = +82.2 deg)
         \addplot[color=crimson, line width=1.0pt, densely dashed, mark=triangle*, mark size=1.0pt] coordinates {
-          (-1050,-0.81) (-1000,-0.74) (-950,-0.08) (-900,1.52) (-850,2.18) (-800,2.05) (-750,2.86)
-          (-700,2.61) (-650,2.95) (-600,3.33) (-550,3.06) (-500,4.1) (-450,8.59) (-400,13.5)
-          (-350,17.9) (-300,26.92) (-250,37.85) (-200,53.01) (-150,77.75) (-100,125.07)
-          (100,141.98) (150,88.31) (200,59.39) (250,44.73) (300,35.58) (350,29.85) (400,25.59)
-          (450,21.17) (500,17.67) (550,15.48) (600,13.61) (650,11.49) (700,10.29) (750,8.71)
-          (800,7.06) (850,6.03) (900,5.23) (950,4.99) (1000,4.51) (1050,4.84)
+          (-1050,0.33) (-1000,0.93) (-950,2.33) (-900,1.18) (-850,1.65) (-800,1.6) (-750,2.67)
+          (-700,2.37) (-650,1.98) (-600,2.42) (-550,1.55) (-500,2.46) (-450,6.28) (-400,11.71)
+          (-350,16.0) (-300,22.75) (-250,35.21) (-200,49.76) (-150,76.52) (-100,128.17)
+          (100,137.02) (150,83.76) (200,54.34) (250,39.18) (300,30.65) (350,25.45) (400,21.48)
+          (450,17.22) (500,13.96) (550,11.03) (600,9.61) (650,7.96) (700,7.01) (750,5.85)
+          (800,4.13) (850,4.04) (900,3.54) (950,3.32) (1000,3.39) (1050,2.35)
         };
-        \addlegendentry{Minor Axis ($\text{PA}{=}{+75^\circ}$)}
+        \addlegendentry{Minor Axis ($\text{PA}{=}{+82.2^\circ}$)}
 
         % Annotate elliptical width & near-side dust drop
-        \draw[{Stealth[scale=0.6]}-{Stealth[scale=0.6]}, tealaccent!90!black, line width=0.7pt] (axis cs:-500,26) -- (axis cs:500,26);
-        \node[font=\tiny\bfseries, color=tealaccent!90!black, fill=white, inner sep=1pt] at (axis cs:0,33) {$2a = 1000$\,px at $+26$\,ADU};
-        \draw[-{Stealth[scale=0.65]}, crimson, thin] (axis cs:-720,48) -- (axis cs:-460,11);
+        \draw[{Stealth[scale=0.6]}-{Stealth[scale=0.6]}, tealaccent!90!black, line width=0.7pt] (axis cs:-450,26) -- (axis cs:450,26);
+        \node[font=\tiny\bfseries, color=tealaccent!90!black, fill=white, inner sep=1pt] at (axis cs:0,33) {$2a = 900$\,px at $+26$\,ADU};
+        \draw[-{Stealth[scale=0.65]}, crimson, thin] (axis cs:-720,48) -- (axis cs:-460,9);
         \node[font=\tiny\bfseries, color=crimson, align=center] at (axis cs:-730,62) {Dust-lane\\extinction};
       \end{axis}
     \end{tikzpicture}%
   }
   \vspace{-0.4em}
-  \caption{Visual and isophotal analysis of the Andromeda Galaxy holdout stack (M31, \code{andromeda\_best.npy}). \textbf{(a)} A standard un-flattened global \code{asinh} stretch ($0\text{--}1100\text{\,ADU}$) renders only a compact, nearly circular nuclear core: at $0.641''/\text{px}$, the $44.4' \times 29.1'$ overlap ROI sits entirely \emph{inside} M31's $190' \times 60'$ ($3.2^\circ$) outer spiral disk, while the un-calibrated $35.5\%$ radial Newtonian vignetting dome masks subtle mid-bulge ellipticity ($b/a_{\text{raw}} = 0.98$ at $20\text{\,ADU}$). \textbf{(b)} Dividing post-hoc (for visualization only) by the smooth 7-parameter optical vignetting flat derived from \code{ring\_best.npy} and anchoring the black point to the outer minor-axis zone ($|s_{\min}| \in [820, 1200]\text{\,px}$) unveils M31's inclined triaxial bulge and inner disk elongated along $\text{PA}_{\text{sensor}} = -15.0^\circ$ ($b/a = 0.60\text{--}0.72$ across $2a = 1800\text{\,px} \approx 19.2'$). \textbf{(c)} Star-clipped major- vs.\ minor-axis surface-brightness cuts ($L_{\text{exc}}$; core peak $418\text{\,ADU}$ clipped at $145\text{\,ADU}$ for wing clarity) quantifying both the $1.4\text{--}1.7\times$ major-axis elongation and the asymmetric near-side dust-lane extinction drop on the northern minor axis ($+8.59\text{\,ADU}$ at $s = -450\text{\,px}$ vs.\ $+21.17\text{\,ADU}$ at $s = +450\text{\,px}$).}
+  \caption{Visual and isophotal analysis of the Andromeda Galaxy holdout stack (M31, \code{andromeda\_best.npy}). \textbf{(a)} A standard un-flattened global \code{asinh} stretch ($0\text{--}1100\text{\,ADU}$) renders only a compact, nearly circular nuclear core: at $0.641''/\text{px}$, the $44.4' \times 29.1'$ overlap ROI sits entirely \emph{inside} M31's $190' \times 60'$ ($3.2^\circ$) outer spiral disk, while the un-calibrated $35.5\%$ radial Newtonian vignetting dome masks subtle mid-bulge ellipticity ($b/a_{\text{raw}} = 0.98$ at $20\text{\,ADU}$). \textbf{(b)} Applying the blind \code{ring\_set}-derived synthetic session flat field (Sec.~\ref{sec:flat_field}) and anchoring the black point to the outer minor-axis zone ($|s_{\min}| \in [820, 1200]\text{\,px}$) unveils M31's inclined triaxial bulge and inner disk elongated along its fitted principal axis $\text{PA}_{\text{sensor}} = -7.8^\circ$ ($b/a = 0.60\text{--}0.67$ across $2a = 1800\text{\,px} \approx 19.2'$). \textbf{(c)} Star-clipped major- ($\text{PA}=-7.8^\circ$) vs.\ minor-axis ($\text{PA}=+82.2^\circ$) surface-brightness cuts ($L_{\text{exc}}$; core peak clipped at $145\text{\,ADU}$ for wing clarity) quantifying both the $1.5\text{--}1.7\times$ major-axis elongation and the asymmetric near-side dust-lane extinction drop on the northern minor axis ($+6.28\text{\,ADU}$ at $s = -450\text{\,px}$ vs.\ $+17.22\text{\,ADU}$ at $s = +450\text{\,px}$).}
   \label{fig:m31_visual}
 \end{figure*}
 
@@ -969,7 +969,7 @@ Inspecting a naive global preview of \code{andromeda\_best.npy} raises an immedi
   \item \textbf{Vignetting Bowl vs.\ Mid-Isophote Compression:} Because no flat-field exposures (\code{flat\_set}) were captured during the 2020 session, the telescope's $35.5\%$ radial illumination drop imprints a circular skyglow dome onto raw frames, driving raw outer contours to $b/a_{\text{raw}} = 0.98$, while M31's bright $r^{1/4}$ nucleus ($\sim 1{,}100\text{\,ADU}$) compresses the $15\text{--}30\text{\,ADU}$ azimuthal bulge modulation into $<4\%$ display contrast.
 \end{enumerate}
 
-Because \code{ring\_set} was acquired 3 minutes later on the identical optical train with $99.9\%$ of its field free of extended emission, fitting a smooth 7-parameter radial-polynomial illumination model $V(\bm{x})$ to star- and M57-masked $64\times 64$ blocks of \code{ring\_best.npy} provides an empirical session flat (applied strictly post-hoc in Fig.~\ref{fig:m31_visual}b without modifying the locked benchmark array). Anchoring the Lupton \code{asinh} black point to the outer minor-axis zone cleanly reveals M31's inclined elliptical bulge and inner disk along $\text{PA}_{\text{sensor}} = -15.0^\circ$ ($b/a = 0.60$ at $+60\text{\,ADU}$, $0.70$ at $+26\text{\,ADU}$, and $0.72$ at $+11\text{\,ADU}$ across $2a = 1800\text{\,px}$), as well as M31's near-side dust-lane extinction trough on the northern minor axis ($+8.59\text{\,ADU}$ at $s_{\min} = -450\text{\,px}$ vs.\ $+21.17\text{\,ADU}$ at $s_{\min} = +450\text{\,px}$; Fig.~\ref{fig:m31_visual}c).
+Because \code{ring\_set} was acquired 3 minutes later on the identical optical train with $99.1\%$ of its field free of extended emission, dividing by the blind \code{ring\_set}-derived synthetic session flat field (Sec.~\ref{sec:flat_field}) and anchoring the Lupton \code{asinh} black point to the outer minor-axis zone cleanly reveals M31's inclined elliptical bulge and inner disk along its fitted principal axis $\text{PA}_{\text{sensor}} = -7.8^\circ$ ($b/a = 0.600$ at $+60\text{\,ADU}$, $0.667$ at $+26\text{\,ADU}$, and $0.611$ at $+11\text{\,ADU}$ across $2a = 1800\text{\,px}$), as well as M31's near-side dust-lane extinction trough on the northern minor axis ($+6.28\text{\,ADU}$ at $s_{\min} = -450\text{\,px}$ vs.\ $+17.22\text{\,ADU}$ at $s_{\min} = +450\text{\,px}$; Fig.~\ref{fig:m31_visual}c).
 
 \section{Empirical Synthetic Flat-Field Estimation: Removing Radial Vignetting \& Optical Dust Motes Without Flats}
 \label{sec:flat_field}

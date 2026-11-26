@@ -206,27 +206,46 @@ def generate_m31_plates(out_dir):
     u8_unflat = lupton_asinh_rgb(raw4, wb_m31, sky_unflat, soft_q=480.0, stretch_alpha=12.0, post_bias=1.5, gamma=0.95)
     Image.fromarray(u8_unflat, mode="RGB").save(os.path.join(out_dir, "m31_unflattened_raw.png"))
 
-    # Panel (b): Empirical Session-Flat Divided + Bulge/Inner-Disk Pedestal Stretch!
-    # True model-free M31 major axis in sensor (x_right, y_down) coordinates is PA_sensor = -15.0 deg (165 deg);
-    # minor axis is PA_sensor = +75.0 deg!
-    corr4 = raw4 / np.maximum(flat4, 0.5)
+    # Panel (b): Use the C++20 blind session synthetic flat-fielded stack if available
+    # (otherwise fall back to post-hoc 7-param vignetting flat), and FIT M31's true
+    # principal axis PA_sensor directly from intensity-weighted second moments (220..950 px).
+    flat_stack_path = "logs/flat_experiments/iter_06_wiener_final/andromeda_full_flat.npy"
+    if os.path.isfile(flat_stack_path):
+        androm_flat = np.load(flat_stack_path)
+        corr4 = androm_flat[y0:y1, x0:x1].reshape(sh, 4, sw, 4, 3).mean(axis=(1, 3)).astype(np.float64)
+    else:
+        corr4 = raw4 / np.maximum(flat4, 0.5)
+
     nuc_x, nuc_y = 2073.0, 1205.0
-    pa_maj = math.radians(-15.0)
     dx_n = sx_px - nuc_x
     dy_n = sy_px - nuc_y
+    r_n = np.hypot(dx_n, dy_n)
+
+    # Fit true empirical PA_sensor via intensity-weighted second moments in 220..950 px ring
+    corr_L_raw = 0.25 * corr4[:, :, 0] + 0.50 * corr4[:, :, 1] + 0.25 * corr4[:, :, 2]
+    sky_outer = float(np.percentile(corr_L_raw[r_n > 1300.0], 30))
+    exc_init = corr_L_raw - sky_outer
+    m_pa = (r_n >= 220.0) & (r_n <= 950.0) & (exc_init > 2.0)
+    w_pa = exc_init[m_pa]
+    mxx = float(np.sum(w_pa * dx_n[m_pa] ** 2) / np.sum(w_pa))
+    myy = float(np.sum(w_pa * dy_n[m_pa] ** 2) / np.sum(w_pa))
+    mxy = float(np.sum(w_pa * dx_n[m_pa] * dy_n[m_pa]) / np.sum(w_pa))
+    pa_maj = 0.5 * math.atan2(2.0 * mxy, mxx - myy)
+    pa_sensor_deg = round(math.degrees(pa_maj), 1)
+    tikz_rot_deg = round(-pa_sensor_deg, 1)
+
     s_maj = dx_n * math.cos(pa_maj) + dy_n * math.sin(pa_maj)
     s_min = -dx_n * math.sin(pa_maj) + dy_n * math.cos(pa_maj)
 
-    # Anchor pedestal to outer minor-axis zone (780 <= |s_min| <= 1150 px) so the 152..550 ADU bulge/disk regime spans full contrast!
+    # Anchor pedestal to outer minor-axis zone (820 <= |s_min| <= 1200 px) so the bulge/disk regime spans full contrast!
     outer_min_zone = (np.abs(s_min) >= 820.0) & (np.abs(s_min) <= 1200.0)
     ped_bulge = np.array([np.percentile(corr4[:, :, ch][outer_min_zone], 22) for ch in range(3)])
 
-    # Warm golden-ivory core + steep midtone stretch highlighting the PA=-15 deg elliptical bulge & inner disk
+    # Warm golden-ivory core + steep midtone stretch highlighting the empirical elliptical bulge & inner disk
     u8_flat = lupton_asinh_rgb(corr4, wb_m31, ped_bulge, soft_q=175.0, stretch_alpha=16.0, post_bias=1.8, gamma=0.88)
     Image.fromarray(u8_flat, mode="RGB").save(os.path.join(out_dir, "m31_flat_corrected.png"))
 
-    # Measure true major-axis (PA=-15 deg) vs minor-axis (PA=+75 deg) surface-brightness profiles in flat-corrected WB Luminance!
-    corr_L_raw = 0.25 * corr4[:, :, 0] + 0.50 * corr4[:, :, 1] + 0.25 * corr4[:, :, 2]
+    # Measure true major-axis vs minor-axis surface-brightness profiles in flat-corrected WB Luminance!
     floor_L = float(np.percentile(corr_L_raw[outer_min_zone], 22))
     exc_L = corr_L_raw - floor_L
 
@@ -260,7 +279,7 @@ def generate_m31_plates(out_dir):
     nuc_tikz_y = 1.0 - (nuc_y - y0) / (y1 - y0)
 
     print("\n=== M31 RENDERED PLATE & TRUE ELLIPSE VERIFICATION ===")
-    print(f"  M31 Nucleus TikZ norm : ({nuc_tikz_x:.4f}, {nuc_tikz_y:.4f}), PA_sensor = -15.0 deg (TikZ angle = +15.0 deg)")
+    print(f"  M31 Nucleus TikZ norm : ({nuc_tikz_x:.4f}, {nuc_tikz_y:.4f}), PA_sensor = {pa_sensor_deg:+.1f} deg (TikZ angle = {tikz_rot_deg:+.1f} deg)")
     for row in iso_table:
         print(f"  Isophote +{row['exc_adu']:4.1f} ADU above outer floor: semi-major a={row['a_px']:4d}px, semi-minor b={row['b_px']:4d}px, b/a={row['ba']:.3f}")
     print(f"  Near-side dust asymmetry at |s_min|=450px: North(s=-450)={[p['L_exc'] for p in min_prof if p['s_px']==-450]} vs South(s=+450)={[p['L_exc'] for p in min_prof if p['s_px']==450]} ADU")
@@ -270,8 +289,8 @@ def generate_m31_plates(out_dir):
         "binned_shape_hw": [sh, sw],
         "nuc_sensor_px": [nuc_x, nuc_y],
         "nuc_tikz_norm": [round(nuc_tikz_x, 4), round(nuc_tikz_y, 4)],
-        "pa_sensor_deg": -15.0,
-        "tikz_rotation_deg": 15.0,
+        "pa_sensor_deg": pa_sensor_deg,
+        "tikz_rotation_deg": tikz_rot_deg,
         "isophotes": iso_table,
         "major_axis_profile": maj_prof,
         "minor_axis_profile": min_prof,
