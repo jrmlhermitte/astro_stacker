@@ -8,10 +8,10 @@ namespace astro {
 
 enum class FlatMode {
     None,
-    MotesSelf,   // Iter 1: Sensor-space temporal median + dip-masked band-pass dust motes only
-    MotesIter,   // Iter 2: Alternating sky-model division dust-mote solver (cancels stars + M31)
-    FullSelf,    // Iter 3a: Smooth radial vignetting + MotesSelf
-    FullIter     // Iter 3b: Smooth radial vignetting + MotesIter
+    MotesSelf,   // Sensor-space temporal median + dip-masked band-pass dust motes only
+    MotesIter,   // Alternating sky-model division dust-mote solver (cancels stars + extended targets)
+    FullSelf,    // Smooth radial vignetting + MotesSelf
+    FullIter     // Smooth radial vignetting + MotesIter
 };
 
 enum class FlatChromaMode {

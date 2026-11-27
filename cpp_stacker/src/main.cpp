@@ -18,6 +18,8 @@
 
 namespace {
 
+constexpr const char* APP_VERSION = "1.0.0";
+
 struct CliArgs {
     std::string lights_dir;
     std::string darks_dir;
@@ -32,12 +34,53 @@ struct CliArgs {
     std::string save_flat;
     std::string load_flat;
     int flat_iters = 3;
+    bool show_help = false;
+    bool show_version = false;
 };
+
+void print_usage(std::ostream& os) {
+    os << "astro_stacker " << APP_VERSION << " - C++20/OpenMP deep-sky astrophotography stacking engine\n\n"
+       << "Usage:\n"
+       << "  astro_stacker --lights <dir> --darks <dir> [OUTPUTS...] [OPTIONS...]\n\n"
+       << "Required inputs:\n"
+       << "  --lights <dir>           Directory containing raw light .CR2 exposures\n"
+       << "  --darks <dir>            Directory containing raw dark .CR2 exposures\n\n"
+       << "Outputs (specify at least one):\n"
+       << "  --out-tif <file.tif>         32-bit IEEE-754 linear RGB TIFF\n"
+       << "  --out-preview-tif <file.tif> 16-bit auto-stretched RGB preview TIFF\n"
+       << "  --out-fits <file.fits>       32-bit IEEE-754 linear RGB FITS cube\n"
+       << "  --out-npy <file.npy>         32-bit float RGB NumPy array (H, W, 3)\n"
+       << "  --out-transforms <file.json> Per-frame registration transforms & weights\n\n"
+       << "Registration & flat-field options:\n"
+       << "  --ref-frame <filename>       Pin a specific light frame as reference grid\n"
+       << "                               (default: automatically select sharpest frame)\n"
+       << "  --flat-mode <mode>           Synthetic sensor-space flat-field mode:\n"
+       << "                               none (default), motes-self, motes-iter,\n"
+       << "                               full-self, full-iter\n"
+       << "  --flat-chroma <mode>         Flat chromaticity: coupled (default), per-channel\n"
+       << "  --flat-iters <N>             Iterations for iterative flat modes (default: 3)\n"
+       << "  --save-flat <file.npy>       Save estimated synthetic flat field (.npy)\n"
+       << "  --load-flat <file.npy>       Load and apply an existing flat field (.npy)\n\n"
+       << "General:\n"
+       << "  -h, --help                   Show this help message and exit\n"
+       << "  -v, --version                Show version and exit\n\n"
+       << "Example:\n"
+       << "  astro_stacker --lights ./lights --darks ./darks \\\n"
+       << "    --flat-mode full-iter --out-tif stack.tif --out-preview-tif preview.tif\n";
+}
 
 CliArgs parse_cli(int argc, char** argv) {
     CliArgs args;
     for (int i = 1; i < argc; ++i) {
         const std::string key = argv[i];
+        if (key == "-h" || key == "--help") {
+            args.show_help = true;
+            return args;
+        }
+        if (key == "-v" || key == "--version") {
+            args.show_version = true;
+            return args;
+        }
         auto next_val = [&]() -> std::string {
             if (i + 1 >= argc) {
                 throw std::runtime_error("Missing value for argument: " + key);
@@ -58,16 +101,17 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (key == "--load-flat") args.load_flat = next_val();
         else if (key == "--flat-iters") args.flat_iters = std::stoi(next_val());
         else {
-            throw std::runtime_error("Unknown CLI argument: " + key);
+            throw std::runtime_error("Unknown CLI argument: " + key + " (use --help for usage)");
         }
     }
-    if (args.lights_dir.empty() || args.darks_dir.empty() ||
-        args.out_npy.empty() || args.out_transforms.empty()) {
+    const bool has_any_output =
+        !args.out_npy.empty() || !args.out_transforms.empty() ||
+        !args.out_fits.empty() || !args.out_tif.empty() || !args.out_preview_tif.empty();
+    if (args.lights_dir.empty() || args.darks_dir.empty() || !has_any_output) {
         throw std::runtime_error(
-            "Usage: astro_stacker --lights <dir> --darks <dir> --out-npy <file.npy> "
-            "--out-transforms <transforms.json> [--out-fits <f.fits>] [--out-tif <f.tif>] "
-            "[--out-preview-tif <preview16.tif>] [--flat-mode none|motes-self|motes-iter|full-self|full-iter] "
-            "[--flat-chroma coupled|per-channel] [--save-flat <f.npy>] [--load-flat <f.npy>]"
+            "Missing required arguments: --lights, --darks, and at least one output "
+            "(--out-tif, --out-preview-tif, --out-fits, --out-npy, or --out-transforms). "
+            "Run with --help for full usage."
         );
     }
     return args;
@@ -86,6 +130,14 @@ int main(int argc, char** argv) {
     try {
         const auto t_total0 = std::chrono::steady_clock::now();
         const CliArgs args = parse_cli(argc, argv);
+        if (args.show_help) {
+            print_usage(std::cout);
+            return 0;
+        }
+        if (args.show_version) {
+            std::cout << "astro_stacker " << APP_VERSION << "\n";
+            return 0;
+        }
 
         // 1. Load & validate darks and lights (.CR2 strictly)
         const auto t0 = std::chrono::steady_clock::now();
@@ -178,8 +230,12 @@ int main(int argc, char** argv) {
         const auto t5 = std::chrono::steady_clock::now();
 
         // 5. Export outputs
-        astro::write_npy_f32_rgb(args.out_npy, stacked_rgb);
-        astro::write_transforms_json(args.out_transforms, qualities[ref_idx].filename, transforms);
+        if (!args.out_npy.empty()) {
+            astro::write_npy_f32_rgb(args.out_npy, stacked_rgb);
+        }
+        if (!args.out_transforms.empty()) {
+            astro::write_transforms_json(args.out_transforms, qualities[ref_idx].filename, transforms);
+        }
         if (!args.out_fits.empty()) {
             astro::write_fits_f32_rgb(args.out_fits, stacked_rgb);
         }
