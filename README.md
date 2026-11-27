@@ -1,6 +1,6 @@
 # Astro Stacker
 
-> **Work in Progress (WIP):** This project is actively evolving and not yet a finished, general-purpose release (for example, sensor geometry is currently hardcoded to Canon EOS 1100D `.CR2` frames, and CLI/packaging/UI details may still change).
+> **Work in Progress (WIP) — Single Camera Only:** This project is actively evolving and **currently only works with raw `.CR2` exposures from a Canon EOS 1100D (Rebel T3)** (hardcoded 14-bit RGGB sensor geometry, optical-black strip, and ADU validation bounds). It will reject files from other cameras until dynamic `LibRaw` sensor support is implemented—see [Camera Support & Adapting to Other Cameras](#camera-support--adapting-to-other-cameras) below.
 >
 > **Development Note:** Much of the C++20 implementation, evaluation harness, and documentation was **heavily AI-assisted** (making it possible to build in limited spare time) and **human-directed & validated** against real astrophotography data. Read the full story behind how this was built in the companion blog post: [Hill-Climbing an Astro Stacker with Carbon](https://jrmlhermitte.github.io/2026/11/26/hill-climbing-an-astro-stacker-with-carbon.html).
 
@@ -146,12 +146,24 @@ On completion, `astro_stacker` prints a structured JSON summary to `stdout` (fra
 
 ---
 
-## Current Scope & Roadmap
+## Camera Support & Adapting to Other Cameras
 
-> **Camera Support Note:** The current `1.0.0` release enforces Canon EOS 1100D 14-bit RGGB sensor geometry (`4352 x 2874` raw / `4290 x 2856` active; see [`cpp_stacker/include/types.hpp`](cpp_stacker/include/types.hpp)).
+> **Current Limitation:** Out of the box, `astro_stacker` **only supports the Canon EOS 1100D (Rebel T3)** (`4352 x 2874` raw / `4290 x 2856` active, 14-bit RGGB `.CR2`, ~2048 ADU black pedestal with a left optical-black strip). Exposures from any other camera will be rejected during raw validation.
 
-Planned next steps:
-- [ ] Generalize sensor geometry, CFA pattern, and optical-black margin extraction dynamically via `LibRaw` for arbitrary DSLR/mirrorless cameras (`.CR2`, `.CR3`, `.NEF`, `.ARW`, `.DNG`)
+### Can it be used with other cameras?
+
+- **Not yet without code changes**, though the core algorithms (dark calibration, Malvar–He–Cutler demosaicing, chiral triangle registration, synthetic flat-fielding, and Lanczos-3 Winsorized integration) are **camera-agnostic**.
+- **Other 14-bit RGGB Canon `.CR2` bodies** (with a ~2048 ADU pedestal and left optical-black strip): can be made to work right now by updating the compile-time sensor constants in [`cpp_stacker/include/types.hpp`](cpp_stacker/include/types.hpp) and the 80% partial-row salvage constant in [`cpp_stacker/src/raw_loader.cpp`](cpp_stacker/src/raw_loader.cpp), then rebuilding.
+- **Other DSLRs / mirrorless cameras (`.CR3`, `.NEF`, `.ARW`, `.DNG`, 12-bit/16-bit, or non-RGGB Bayer)** require generalizing the 5 places marked `// CAMERA-SPECIFIC` in the codebase:
+  1. [`cpp_stacker/include/types.hpp`](cpp_stacker/include/types.hpp) — hardcoded `RAW_W`/`RAW_H`/`TOP_MARGIN`/`LEFT_MARGIN`/`ACTIVE_W`/`ACTIVE_H` and `OB_LEFT_*` strip bounds (replace with runtime dimensions from `LibRaw::imgdata.sizes`).
+  2. [`cpp_stacker/src/raw_loader.cpp`](cpp_stacker/src/raw_loader.cpp) — `.CR2`-only extension filter, strict geometry equality check, 14-bit max (`16383`) & ~2048-pedestal underflow (`1750` / `1850`) gates, and `2285`-row salvage threshold.
+  3. [`cpp_stacker/src/calibration.cpp`](cpp_stacker/src/calibration.cpp) — left optical-black strip assumption and 14-bit ADU hot-site scaling bounds (`250..9000`, `220`, `12500`).
+  4. [`cpp_stacker/src/demosaic.cpp`](cpp_stacker/src/demosaic.cpp) — RGGB-only Bayer phase in `demosaic_mhc_rggb()` (needs `(r0, c0)` Bayer phase offset for `BGGR`/`GRBG`/`GBRG`, or a separate demosaicer for X-Trans).
+  5. [`cpp_stacker/src/star_detector.cpp`](cpp_stacker/src/star_detector.cpp) — 14-bit star saturation cutoff (`10500.0f` ADU).
+
+### Roadmap
+
+- [ ] Generalize sensor geometry, Bayer phase, black/saturation levels, and file extensions dynamically via `LibRaw` for arbitrary DSLR/mirrorless cameras (`.CR2`, `.CR3`, `.NEF`, `.ARW`, `.DNG`)
 - [ ] Ubuntu Debian packaging (`.deb` / PPA)
 - [ ] Interactive UI (desktop, web, or mobile frontend driving the `astro_stacker` core)
 

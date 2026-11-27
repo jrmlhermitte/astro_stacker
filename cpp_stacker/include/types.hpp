@@ -6,6 +6,11 @@
 
 namespace astro {
 
+// CAMERA-SPECIFIC (Canon EOS 1100D / Rebel T3, 14-bit RGGB):
+// Compile-time sensor dimensions, active area margins, and left optical-black
+// (OB) strip coordinates. Generalizing to arbitrary cameras requires replacing
+// these constants with runtime dimensions populated from LibRaw::imgdata.sizes
+// and LibRaw::imgdata.color.
 inline constexpr int RAW_W = 4352;
 inline constexpr int RAW_H = 2874;
 inline constexpr int TOP_MARGIN = 18;
@@ -14,7 +19,7 @@ inline constexpr int ACTIVE_W = 4290;
 inline constexpr int ACTIVE_H = 2856;
 inline constexpr size_t ACTIVE_PIXELS = static_cast<size_t>(ACTIVE_W) * ACTIVE_H;
 inline constexpr int OB_LEFT_START = 2;
-inline constexpr int OB_LEFT_END = 60; // [2, 60) -> 58 cols
+inline constexpr int OB_LEFT_END = 60; // [2, 60) -> 58 cols of left optical black
 inline constexpr int ROI_MARGIN = 64;
 
 struct RawFrameMeta {
