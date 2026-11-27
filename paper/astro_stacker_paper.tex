@@ -51,12 +51,12 @@
   \begin{@twocolumnfalse}%
     \maketitle
     \begin{abstract}
-      \noindent Stacking unguided or prime-focus deep-sky digital single-lens reflex (DSLR) exposures requires recovering faint astronomical signals buried near the Poisson sky-background floor while tracking non-uniform mount drift, celestial field rotation, outdoor sensor cooling, and raw bitstream defects. We begin with a mathematical and empirical postmortem of a legacy 2020 Python stacking prototype (\code{legacy\_2020/}) that attempted registration via full-frame spatial cross-correlation $C_{\bm{k}}$ and ensemble lag averaging $\langle C_{\bm{k}} \rangle$, proving five fundamental physical failure modes---led by coherent zero-lag master-dark estimation variance $(\tilde{\bar{\eta}} - \bar{\eta})$ that cannot be attenuated by averaging across frame pairs, stationary optical vignetting bowls, $<0.5\%$ stellar pixel occupancy, worm-gear periodic tracking drift, and field rotation.
+      \noindent Stacking unguided deep-sky DSLR exposures requires recovering faint astronomical signals near the Poisson sky floor amidst non-uniform mount drift, celestial field rotation, outdoor sensor cooling, and raw bitstream defects. We begin with a mathematical and empirical postmortem of a legacy 2020 Python stacking prototype (\code{legacy\_2020/}) based on full-frame spatial cross-correlation $C_{\bm{k}}$, proving five physical failure modes---led by coherent zero-lag master-dark estimation variance $(\tilde{\bar{\eta}} - \bar{\eta})$, stationary optical vignetting bowls, $<0.2\%$ stellar pixel occupancy, worm-gear drift reversals, and field rotation.
 
-      \medskip
-      \noindent To engineer a modern replacement without visual language model (VLM) inspection or human tuning bias, we construct a \textbf{strictly quarantined, blind autonomous algorithm-optimization harness}. Raw Canon EOS 1100D 14-bit \code{.CR2} forensics across 62 exposures (\code{dark\_set}, \code{ring\_set} M57, and holdout \code{andromeda\_set} M31) uncover five corrupted lossless-JPEG bitstreams (including silent predictor underflow in \code{IMG\_6096.CR2}), a zenith EXIF \code{flip\,=\,5} orientation trap, a $34\,^\circ\text{C} \to 18\,^\circ\text{C}$ outdoor sensor cooling curve, and analytic $5\times 5$ Malvar--He--Cutler warm-pixel ring blooming. We lock a self-contained pure-NumPy referee (\code{evaluate.py}) verified across \textbf{28/28 adversarial torture tests} (\code{Gates 0--5}) and pair it with fresh, isolated \textbf{Red-Team Auditor} subagents inspecting every \code{git diff} and telemetry payload (\code{logs/dataset\_manifest.json}, \code{logs/reference\_selection.json}, \code{logs/torture\_test\_results.json}, \code{logs/metrics.jsonl}, \code{logs/03\_iteration\_log.md}). Across 10 atomic evolutionary iterations on \code{ring\_set} (7 kept, 4 reverted), our C++20 engine advances from a single-frame baseline of \code{50.0000} and an integer shift-and-add C++20 baseline of \code{106.0167} to \textbf{\code{109.5265}} (\code{+3.5098}), achieving $3.95\times$ background noise suppression (\code{0.4328} $\to$ \code{0.1095}), $3.34\times$ deeper $5\sigma$ point-source recovery (\code{105} $\to$ \code{351} stars), and \code{0} residual warm-pixel impulses. Crucially, the evolutionary trajectory uncovers a \textbf{non-commutative algorithmic ordering law}: sensor-level dark/pedestal calibration degrades composite quality (\code{-0.71} / \code{-0.79}) when attempted via spatial CFA repair \emph{prior} to temporal outlier rejection, yet yields \code{+0.37} cleanly once orthogonal temporal Winsorized Sigma Clipping is in place. Evaluated \textbf{zero-shot with zero hyperparameter retuning} on the out-of-distribution Andromeda Galaxy holdout set (\code{andromeda\_set}), the winning engine improves over the C++20 baseline from \code{111.4353} to \textbf{\code{114.8796}} (\code{+3.4443}, within $1.9\%$ of the training gain), sharpening stellar cores below the 21-frame exposure ensemble median ($\code{8.2000\,px} < \code{8.2791\,px}$), eliminating all \code{477} thermal warm-pixel impulses ($\code{477} \to \code{0}$), and preserving $100.16\%$ ($\code{ncc\_64x64} = \code{0.999639}$) of M31's extended galactic disk. Finally, extending the engine with a sensor-space \textbf{synthetic flat-field estimator} (\code{flat\_field.cpp}, $\sim 1.6\text{--}2.6\text{\,s}$ OpenMP) separates and divides out both $32\%$ radial vignetting and localized $20\text{--}140\text{\,px}$ optical dust motes (up to $-7.3\%$ deep) without physical \code{flat\_set} exposures: in mote-only iterative sky-model mode, both locked-referee benchmarks reach new highs (\textbf{\code{109.5821}} on \code{ring\_set}, \textbf{\code{115.9508}} on \code{andromeda\_set}), while applying the \code{ring\_set}-derived full optical-train flat \textbf{blindly} to \code{andromeda\_set} reduces radial vignetting from $32.05\% \to +1.00\%$, flattens quiet sky by $4.4\times$ ($8.71\% \to 2.00\%$), drives cross-dataset sensor-locked dust-mote correlation from $+0.3479 \to +0.0235$ ($-93\%$), and reduces M31 outer-isophote azimuthal MAD by $33\%$ ($4.014\% \to 2.704\%$).
+      \smallskip
+      \noindent To engineer a modern replacement without visual language model (VLM) inspection or human tuning bias, we construct a \textbf{strictly quarantined, blind autonomous algorithm-optimization harness}. Raw Canon EOS 1100D 14-bit \code{.CR2} forensics across 62 exposures (\code{dark\_set}, \code{ring\_set} M57, and holdout \code{andromeda\_set} M31) uncover five corrupted lossless-JPEG bitstreams (including silent predictor underflow in \code{IMG\_6096.CR2}), a zenith EXIF \code{flip\,=\,5} orientation trap, a $34\,^\circ\text{C} \to 18\,^\circ\text{C}$ outdoor cooling curve, and analytic $5\times 5$ Malvar--He--Cutler warm-pixel blooming. We lock a pure-NumPy physics referee (\code{evaluate.py}) verified across \textbf{28/28 adversarial torture tests} (\code{Gates 0--5}) paired with fresh, isolated \textbf{Red-Team Critic} subagents auditing every \code{git diff}. Empirical evaluation of the 2020 manual star-ROI + bilinear-resampling workaround immediately triggers \textbf{Gate 2a} ($\code{score} = -\infty$; inflating quiet-sky correlation $\rho_{1\text{px}}$ from $0.26 \to 0.55$, softening stars, and leaving $164$ diagonal RGB streaks on M31), validating partition-of-unity Lanczos-3 resampling and anti-smoothing gates. Across 10 atomic iterations on \code{ring\_set} (all winning commits passing Critic audit with zero attempted metric-gaming), our pure-CPU C++20/OpenMP engine achieves \textbf{$3.95\times$ background noise suppression}, \textbf{$3.34\times$ deeper $5\sigma$ point-source recovery} ($105 \to 351$ stars), and \textbf{zero residual warm-pixel impulses}, while resolving M57's $V = 15.75\text{\,mag}$ central white dwarf (\code{WD 1851+329}) at $6.7\sigma$ in Blue and uncovering a \textbf{non-commutative algorithmic ordering law} induced by a scorer blind spot. Evaluated \textbf{zero-shot with zero retuning} on the out-of-distribution Andromeda Galaxy holdout set (\code{andromeda\_set}), the engine sharpens stellar cores below the 21-exposure ensemble median ($8.20\text{\,px} < 8.28\text{\,px}$), achieves \textbf{complete elimination of all 477 thermal warm-pixel impulses} ($477 \to 0$), and achieves \textbf{preservation of $100.16\%$ of M31's extended galactic disk} ($\code{ncc\_64x64} = 0.999639$). Finally, stepping outside the locked scorer via human domain intuition to add a sensor-space \textbf{synthetic flat-field estimator} (\code{flat\_field.cpp}, $1.6\text{--}2.6\text{\,s}$ OpenMP) enables blind cross-target calibration from M57 to M31, reducing radial vignetting from $32.05\% \to +1.00\%$, flattening quiet sky by $4.4\times$, collapsing cross-dataset dust-mote correlation by $93\%$ ($+0.3479 \to +0.0235$), and reducing M31 outer-isophote azimuthal MAD by $33\%$.
     \end{abstract}
-    \vspace{1.2em}
+    \vspace{0.6em}
   \end{@twocolumnfalse}%
 ]
 
@@ -89,13 +89,13 @@ Expanding $\mathbb{E}\big[C_{\bm{k}}^{(i,j)}\big]$ over the stochastic noise rea
 \begin{equation}
   \begin{aligned}
     \mathbb{E}\big[C_{\bm{k}}^{(i,j)}\big]
-    &= \underbrace{\delta_{\bm{k},\bm{0}} \left(\frac{\sigma_D^2}{N_D} + \frac{1}{N_{\bm{0}}}\sum_{\bm{x}} \Delta\bar{\eta}_{\text{th},i}(\bm{x})\,\Delta\bar{\eta}_{\text{th},j}(\bm{x})\right)}_{\text{(I) Unvignetted Zero-Lag Dark Residual Spike}} \\
-    &\quad + \underbrace{B_i B_j \, R_{\tilde{V}}(\bm{k})}_{\substack{\text{(II) Stationary}\\\text{Vignetting Hill}}}
-     + \underbrace{R_{VS}^{(i,j)}(\bm{k} - \Delta\bm{u}_{ij})}_{\substack{\text{(III--V) } V(\bm{x})^2\text{-Weighted}\\\text{\& Smeared Stellar Signal}}},
+    &= \delta_{\bm{k},\bm{0}} \left(\frac{\sigma_D^2}{N_D} + \frac{1}{N_{\bm{0}}}\sum_{\bm{x}} \Delta\bar{\eta}_{\text{th},i}(\bm{x})\,\Delta\bar{\eta}_{\text{th},j}(\bm{x})\right) \\
+    &\quad + B_i B_j \, R_{\tilde{V}}(\bm{k})
+     + R_{VS}^{(i,j)}(\bm{k} - \Delta\bm{u}_{ij}),
   \end{aligned}
   \label{eq:corr_expectation}
 \end{equation}
-where $R_{VS}^{(i,j)}$ weights each stellar cross-term by $V(\bm{x})V(\bm{x}+\bm{k})$.
+where the three terms correspond respectively to: \textbf{(I)} the unvignetted zero-lag master-dark and thermal-residual spike at $\bm{k} = \bm{0}$, \textbf{(II)} the stationary optical vignetting hill $B_i B_j\, R_{\tilde{V}}(\bm{k})$ locked to sensor coordinates, and \textbf{(III--V)} the $V(\bm{x})V(\bm{x}+\bm{k}) \approx V(\bm{x})^2$-weighted and drift-smeared stellar signal $R_{VS}^{(i,j)}(\bm{k} - \Delta\bm{u}_{ij})$.
 
 \begin{enumerate}
   \item \textbf{Coherent Finite Master-Dark Residual \& Thermal Mismatch at Zero Lag ($\bm{k} = \bm{0}$):}
@@ -110,7 +110,7 @@ where $R_{VS}^{(i,j)}$ weights each stellar cross-term by $V(\bm{x})V(\bm{x}+\bm
   Prime-focus illumination $V(\bm{x})$ drops radially from $1.00$ at the optical axis to $\approx 0.64$ in the APS-C corners ($\sim 18\text{--}36\%$ radial falloff across the field). Scalar mean subtraction $\mu_m = \overline{V} B_m + \overline{V S}$ leaves the zero-mean spatial sky bowl $\tilde{V}(\bm{x}) B_m = (V(\bm{x}) - \overline{V}) B_m$ ($\text{RMS} \approx 12\text{--}16\text{\,ADU}$, variance $\sim 144\text{--}256\text{\,ADU}^2$) locked to sensor coordinates $(0, 0)$ across $100\%$ of pixels, generating a broad correlation dome peaked at $\bm{k} = \bm{0}$. Simultaneously, because $V(\bm{x})$ attenuates $S$ in both exposures, $R_{VS}^{(i,j)}$ weights stellar cross-terms by $V(\bm{x})V(\bm{x}+\bm{k}) \approx V(\bm{x})^2$ (falling to $0.64^2 \approx 0.41$ near the corners), quadratically suppressing off-axis stars relative to the unvignetted zero-lag dark-residual spike $\Delta C_{\bm{0}}^{\text{dark}}$.
 
   \item \textbf{Extreme Point-Source Sparsity ($<0.5\%$ Pixel Occupancy):}
-  Across \code{ring\_set} (\code{105} single-frame $5\sigma$ stars of median $\text{FWHM} = 9.34\text{\,px}$), stellar cores above $2\sigma_{\text{bg}}$ occupy $\approx 105 \times \pi (8\text{\,px})^2 \approx 2.1 \times 10^4$ pixels---just \textbf{$0.17\%$} of the $1.225 \times 10^7$-pixel sensor. In a full-frame inner product, $99.83\%$ of pixels inject pure sky shot noise ($\sigma_{\text{bg}} \approx 28.0\text{\,ADU}$), readout noise, vignetting, and fixed-pattern dark residuals while contributing zero astrometric Fisher information.
+  Across \code{ring\_set} (\code{105} single-frame $5\sigma$ stars of median $\text{FWHM} = 9.34\text{\,px}$), stellar cores above $2\sigma_{\text{bg}}$ occupy approximately $105 \times \pi (8\text{\,px})^2 \approx 2.1 \times 10^4$ pixels---just \textbf{$0.17\%$} of the $1.225 \times 10^7$-pixel sensor. In a full-frame inner product, $99.83\%$ of pixels inject pure sky shot noise ($\sigma_{\text{bg}} \approx 28.0\text{\,ADU}$), readout noise, vignetting, and fixed-pattern dark residuals while contributing zero astrometric Fisher information.
 
   \item \textbf{Oscillatory Worm-Gear Drift \& Cadence Jitter (Defeating Ensemble Averaging $\langle C_{\bm{k}} \rangle$):}
   Ground-truth 4-DOF astrometry (\code{reference\_\allowbreak selection.json}, Fig.~\ref{fig:forensics}a) proved that inter-frame motion is \textbf{neither linear nor uniform}:
@@ -133,6 +133,12 @@ Static audit of \code{legacy\_2020/\allowbreak astro\_stacker/} revealed four se
   \item \textbf{Silent Bypass of Dark Subtraction \& Unmasked Numerator Correlation (\code{spatial\_\allowbreak correlator.py}, L14--L43):} \code{SpatialCorrelator.\allowbreak correlate} accessed \code{image.data} rather than \code{image.get\_data()}, skipping \code{self.dark} subtraction entirely, correlated \emph{unmasked} hot pixels in the numerator while dividing by \code{cross\_correlate\_2d(mask\_1, mask\_2)}, and divided by zero-crossing \code{bgsub=True} marginals.
   \item \textbf{Savitzky--Golay Boolean Mask Inflation (\code{image.py}, L63--L67):} Filtering a \code{0/1} keep-mask with a cubic Savitzky--Golay polynomial and casting \code{.astype(bool)} turned almost every \code{0} (non-zero float ringing) back into \code{True}, erasing the hot-pixel mask.
 \end{itemize}
+
+\subsection{2020 Manual Star-ROI Workaround \& Empirical Bilinear Disqualification}
+
+Because extreme stellar sparsity ($<0.2\%$ pixel occupancy) caused full-frame shift-difference matching to lock onto zero shift $\bm{k} = (0, 0)$, the original 2020 workflow resorted to manually cropping a tight Region of Interest (ROI) around bright stars to recover per-frame $(dx, dy)$ translation shifts before bilinear resampling and unweighted averaging. Even after correcting the 8-bit/overflow bugs above, reconstructing this best-effort \textbf{2020 Manual Star-ROI + Bilinear} pipeline (\code{logs/flat\_experiments/naive\_2020\_roi/}) exposes why translation-only ROI matching and bilinear interpolation remain fundamentally inadequate: it omits full-frame celestial field rotation, sharp sub-pixel resampling, thermal/Winsorized outlier rejection, and flat-fielding.
+
+Evaluating the resulting stacks on our locked referee (\code{eval\_ring\_naive\_roi.json}, \code{eval\_andromeda\_naive\_roi.json}) provides a striking empirical validation of our anti-Goodhart design. Although the unclamped formula rose artificially to \code{127.99} on \code{ring\_set} and \code{138.31} on \code{andromeda\_set}, \textbf{Gate 2a (spatial-smoothing noise correlation) immediately disqualified both stacks ($\code{score} = -\infty$)}: bilinear averaging inflated 1-pixel quiet-sky autocorrelation $\rho_{1\text{px}}$ from \code{0.26} to \code{0.55} on M57 (\code{0.26} $\to$ \code{0.54} on M31) and $4\times 4$ block-RMS ratio $\mathcal{R}_{4\times 4}$ from \code{1.31} to \code{1.88} (\code{1.30} $\to$ \code{1.86} on M31). This low-pass smoothing artificially suppressed single-pixel sky RMS (\code{0.073} on M57; \code{0.065} on M31) while actually \emph{softening} stellar cores (\code{median\_fwhm\_px} \code{11.28\,px} on M57 and \code{8.43\,px} on M31 vs.\ \code{10.92\,px} and \code{8.20\,px} for our evolved C++20 engine) and leaving \code{164} diagonal RGB warm-pixel streaks across M31 (\code{22} on M57). Thus, both sharp partition-of-unity Lanczos-3 resampling and Gate~2a are empirically essential to prevent silent spatial-blur score inflation.
 
 \begin{table*}[t]
   \centering
@@ -316,7 +322,7 @@ Using \code{scripts/\allowbreak inspect\_cr2\_dataset.py} (backed by thread-safe
   Slewing near zenith for M57 (\code{ring\_set}) tripped the DSLR's internal ball-bearing orientation sensor to \code{sizes.flip = 5} ($90^\circ$ CCW), while \code{dark\_set} and \code{andromeda\_set} recorded \code{sizes.flip = 0}. High-level readers that auto-orient images transpose \code{ring\_set} to $4290 \times 2856$ while leaving \code{dark\_set} at $2856 \times 4290$, misaligning every hot pixel and vignetting contour. Operating strictly on unrotated physical \code{raw\_image[18:2874, 62:4352]} coordinates eliminates this failure mode completely.
 
   \item \textbf{Outdoor Thermal Cooling ($34\,^\circ\text{C} \to 18\,^\circ\text{C}$) \& Analytic MHC $5\times 5$ Warm-Pixel Impulse Blooming:}
-  Silicon dark current doubles roughly every $\Delta T \approx 5.8\text{--}6.5\,^\circ\text{C}$. Because \code{andromeda\_set} ($34 \to 21\,^\circ\text{C}$) and \code{ring\_set} ($24 \to 19\,^\circ\text{C}$) were warmer than \code{dark\_set} ($18\,^\circ\text{C}$; Fig.~\ref{fig:forensics}c), unscaled master-dark subtraction leaves positive single-CFA-site thermal impulses of amplitude $A \in [200, 4000]\text{\,ADU}$. When passed through the linear \textbf{Malvar--He--Cutler (2004)} $5\times 5$ demosaicing kernels and combined into photon-weighted luminance $L = 0.25 R + 0.50 G + 0.25 B$, a unit single-site impulse $A\,\delta_{0,0}$ produces an exact analytic luminance response (\code{reference\_\allowbreak selection.json}, L44--L80):
+  Silicon dark current doubles roughly every $\Delta T \approx 5.8\text{--}6.5\,^\circ\text{C}$. Because \code{andromeda\_set} ($34 \to 21\,^\circ\text{C}$) and \code{ring\_set} ($24 \to 19\,^\circ\text{C}$) were warmer than \code{dark\_set} ($18\,^\circ\text{C}$; Fig.~\ref{fig:forensics}c), unscaled master-dark subtraction leaves positive single-CFA-site thermal impulses of amplitude $A \in [200, 4000]\text{\,ADU}$. When passed through the linear \textbf{Malvar--He--Cutler (2004)}~\cite{malvar2004high} $5\times 5$ demosaicing kernels and combined into photon-weighted luminance $L = 0.25 R + 0.50 G + 0.25 B$, a unit single-site impulse $A\,\delta_{0,0}$ produces an exact analytic luminance response (\code{reference\_\allowbreak selection.json}, L44--L80):
   \begin{itemize}
     \item \emph{On an \code{R} or \code{B} site:} Center $L_{0,0} = +0.6875\,A$, axial $\pm 1\text{\,px}$ cross $L_{\pm 1, 0} = +0.1250\,A$, diagonal $(\pm 1, \pm 1)$ $L_{\pm 1, \pm 1} = +0.0625\,A$, and \textbf{negative axial $\pm 2\text{\,px}$ ring $L_{\pm 2, 0} = -0.109375\,A$}.
     \item \emph{On a \code{G1} or \code{G2} site:} Center $L_{0,0} = +0.8125\,A$, axial $\pm 1\text{\,px}$ cross $L_{\pm 1, 0} = +0.1250\,A$, \textbf{negative diagonal $(\pm 1, \pm 1)$ $L_{\pm 1, \pm 1} = -0.0625\,A$}, and negative axial $\pm 2\text{\,px}$ ring $L_{\pm 2, 0} = -0.015625\,A$.
@@ -434,7 +440,7 @@ Any violation of Gates \code{0--5} immediately forces \code{cheating\_detected =
   \item \textbf{Gate 0 (Array \& Channel Integrity):} Enforces \code{(2856, 4290, 3)} finite floating-point shape, non-zero channel variance, and distinct RGB channels ($\code{std(c1 - c2)} > 10^{-4}\min(\code{std})$).
   \item \textbf{Gate 1 (Dark-Floor \& Histogram-Tail Clipping):} Disqualifies stacks if $>0.05\%$ (\code{0.0005}) of quiet sky pixels share an identical mode/floor value on \code{L}, \code{R}, \code{G}, or \code{B}, or if narrow $0.002\sigma$ lower-tail micro-bins spike $>0.50\%$ (defeating dithered floor clamping).
   \item \textbf{Gate 2a (Sky Spatial-Smoothing Noise Correlation):} Measures $4\times 4$ block-averaged RMS inflation $\mathcal{R}_{4\times 4} = 4\sigma_{4\times 4}/\sigma_{1\times 1}$ and 1-pixel lag autocorrelation $\rho_{1\text{px}}$ in quiet sky cells, triggering if $\mathcal{R}_{4\times 4}^{\text{stack}} > 1.25\,\mathcal{R}_{4\times 4}^{\text{ref}}$ or $\rho_{1\text{px}}^{\text{stack}} > \rho_{1\text{px}}^{\text{ref}} + 0.18$. In torture test \code{(h)}, even a subtle $\sigma = 0.8\text{\,px}$ Gaussian blur inflated $\mathcal{R}_{4\times 4}$ from \code{1.31} to \code{2.39} and $\rho_{1\text{px}}$ from \code{0.26} to \code{0.73}, triggering instant disqualification.
-  \item \textbf{Gate 2b (Exposure-Ensemble-Calibrated FWHM Ceiling):} Because \code{IMG\_6074.CR2} (\code{ref\_ring.npy}, $\text{FWHM} = 9.3427\text{\,px}$) occurred at a stationary worm-gear turnaround whereas the 18 clean \code{ring\_set} frames have single-exposure median $\text{FWHM} = 10.9047\text{\,px}$, Gate 2b enforces a $\le 1.10\times$ ceiling against both the all-star ensemble baseline and the population-matched top-40 bright-star ensemble baseline.
+  \item \textbf{Gate 2b (Exposure-Ensemble-Calibrated FWHM Ceiling):} Because \code{IMG\_6074.CR2} (\code{ref\_ring.npy}, $\text{FWHM} = 9.3427\text{\,px}$) occurred at a stationary worm-gear turnaround whereas the 18 clean \code{ring\_set} frames have single-exposure median $\text{FWHM}_{\text{ens}} = 10.9047\text{\,px}$, Gate 2b enforces the ceiling $\text{FWHM}_{\text{stack}} \le 1.10\,\text{FWHM}_{\text{ens}}$ against both the all-star ensemble baseline and the population-matched top-40 bright-star ensemble baseline.
   \item \textbf{Gate 3a--3c (Frame-Drop, Kish $N_{\text{eff}}$, Stationary Hot-Pixel \& Empirical Poisson Bounds):} Deterministically fingerprints \code{--ref} from pixel medians to require $N_{\text{int}} \ge 18$ (\code{ring\_set}) / $\ge 20$ (\code{andromeda\_set}), Kish effective sample size $N_{\text{eff}} = (\sum w_i)^2/\sum w_i^2 \ge 0.65\,N_{\min}$, non-reference median sky shift $\ge 3.0\text{\,px}$ and trajectory diagonal $\ge 15.0\text{\,px}$ (rejecting $(0,0,0)$ hot-pixel alignment), and empirical sky RMS consistency:
   \begin{equation}
     0.50\,\frac{\sigma_{\text{ref}}}{\sqrt{N_{\text{int}}}} \;\le\; \sigma_{\text{stack}} \;\le\; \min\!\left(0.60,\; \frac{1.85}{\sqrt{N_{\text{eff}}}}\right)\sigma_{\text{ref}},
@@ -447,9 +453,12 @@ Any violation of Gates \code{0--5} immediately forces \code{cheating\_detected =
 
 Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{Adversarial Torture-Tester} subagent authored \code{scripts/\allowbreak torture\_test\_evaluator.py} (\code{28} black-box CLI runs across \code{ring\_set} and \code{andromeda\_set}; \code{torture\_\allowbreak test\_\allowbreak results.json}), catching and resolving four subtle referee calibration bugs (high-SNR Moffat outer-wing $\chi^2_\nu$ variance floor \code{(0.03 * amp)\^{}2}, sparse-field $64\times 64$ meso-scale NCC addition, \code{sky\_rms}-normalized Levenberg--Marquardt convergence for exact \code{50.0} self-identity, and bright-star population FWHM scaling) to achieve \textbf{\code{28 / 28} assertions passed} (\code{(a)} exact \code{50.0}, \code{(f)} float32 scale invariance \code{50.000043} / \code{49.996792}, \code{(k)} honest integer shift-and-add controls \code{105.2461} / \code{112.1717}, and \code{score = -inf} on all cheat vectors \code{(b, c, d, e, g, h, i, j)}). Static AST verification confirmed zero external local \code{.py} or \code{.so} imports, sealing the referee via \code{chmod 444}.
 
+\medskip
+\noindent\textbf{Independent Critic Agent Audit Outcome:} Across the entire evolutionary campaign, all 7 winning commits (plus holdout and coordinate-anchoring verifications) passed inspection by a freshly spawned, isolated Critic LLM subagent (\code{VERDICT: AUDIT\_PASS}) with \textbf{zero attempted metric-gaming in this run}. Nevertheless, literature on specification gaming and reward hacking~\cite{krakovna2020specification,skalse2022defining} demonstrates that autonomous optimizers routinely exploit unforeseen proxy loopholes whenever a scalar objective is optimized hard enough; retaining an independent, stateless Critic over source diffs therefore remains an essential structural safeguard even when the empirical cheat rate is zero.
+
 \begin{table*}[t]
   \centering
-  \caption{Complete 10-iteration autonomous evolutionary ablation ledger on \code{ring\_set} + \code{dark\_set} (\code{logs/metrics.jsonl}). Every kept commit passed both the locked referee (\code{evaluate.py}) and an isolated Red-Team Auditor subagent (\code{AUDIT\_PASS}, short session IDs shown).}
+  \caption{Complete 10-iteration autonomous evolutionary ablation ledger on \code{ring\_set} + \code{dark\_set} (\code{logs/metrics.jsonl}), alongside the unaligned dark-subtracted mean baseline and the best-effort 2020 manual star-ROI + bilinear stack (\code{eval\_ring\_naive\_roi.json}). Every kept commit passed both the locked referee (\code{evaluate.py}) and an isolated Red-Team Critic subagent (\code{AUDIT\_PASS}, short session IDs shown).}
   \label{tab:ablation}
   \vspace{0.3em}
   \resizebox{\textwidth}{!}{%
@@ -458,6 +467,9 @@ Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{
       \textbf{Iter} & \textbf{Git Tag / Atomic Hypothesis} & \textbf{Status} & \textbf{Audit (ID)} & \textbf{Score} & \textbf{$\Delta$ Best} & \textbf{Med FWHM} & \textbf{Cor FWHM} & \textbf{Ecc.} & \textbf{Sky RMS} & \textbf{Stars} & \textbf{$\rho_{\text{ext}}$} & \textbf{Warm} & \textbf{$N_{\text{int}}$ ($N_{\text{eff}}$)} & \textbf{Wall (s)} \\
       \midrule
       \textbf{Ref} & Single Sharpest Frame (\code{IMG\_6074.CR2}) & Anchor & Locked & \code{50.0000} & --- & \code{9.3427} & \code{13.9914} & \code{0.5446} & \code{0.432828} & \code{105} & \code{1.0000} & --- & \code{1 (1.00)} & --- \\
+      \textbf{Unal.} & Unaligned Dark-Subtracted Mean (No Registration) & Baseline & Control & \code{60.28} & --- & --- & --- & --- & --- & --- & --- & --- & \code{19 (19.00)} & --- \\
+      \textbf{2020} & Manual Star-ROI Shift + Bilinear (\code{naive\_2020\_roi}) & \textbf{DISQ.} & Gate 2a & \code{-inf} (\code{127.99}$^*$) & --- & \code{11.2822} & \code{15.2056} & \code{0.6358} & \code{0.073051}$^*$ & \code{504}$^*$ & \code{0.9942} & \code{22} & \code{19 (18.98)} & --- \\
+      \midrule
       \textbf{0} & \code{iter-0-baseline}: LibRaw gate, 2048 bias + mean dark, MHC $5\times 5$, COM, int shift+add & \textbf{KEPT} & \code{PASS (dfea28)} & \textbf{\code{106.0167}} & \code{+56.0167} & \code{11.1838} & \code{14.6633} & \code{0.6289} & \code{0.114917} & \code{316} & \code{0.9938} & \code{11} & \code{18 (18.00)} & \code{42.07} \\
       \textbf{1} & \code{iter-1}: OB pedestal + Winsorized dark + thermal scale + cross-color ($r{=}1$ vs $8.06$) CFA repair & REVERTED & Degraded & \code{105.3087} & \code{-0.7080} & \code{11.2080} & \code{15.2426} & \code{0.6283} & \code{0.114672} & \code{318} & \code{0.9937} & \code{0} & \code{18 (18.00)} & \code{71.13} \\
       \textbf{2} & \code{iter-2}: OB pedestal + Winsorized dark + thermal scale + same-color ($r{=}2$ vs $18$) CFA repair & REVERTED & Degraded & \code{105.2288} & \code{-0.7879} & \code{11.2119} & \code{15.3489} & \code{0.6280} & \code{0.114727} & \code{320} & \code{0.9937} & \code{0} & \code{18 (18.00)} & \code{64.32} \\
@@ -472,57 +484,68 @@ Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{
       \bottomrule
     \end{tabular}%
   }
+  \vspace{0.2em}
+  \parbox{\textwidth}{\footnotesize $^*$Unclamped formula artifact: bilinear interpolation inflates quiet-sky spatial correlation ($\rho_{1\text{px}} = 0.5497$ vs.\ $0.2601$ ref; $\mathcal{R}_{4\times 4} = 1.8769$ vs.\ $1.3114$ ref), artificially depressing 1-pixel RMS and inflating star counts while softening stellar cores (\code{11.28\,px}); immediately disqualified by Gate~2a ($\code{score} = -\infty$).}
 \end{table*}
 
 \begin{figure*}[t]
   \centering
   \begin{tikzpicture}
-    % Panel (a): Composite Score Trajectory
+    % Panel (a): Combined M57 (Train) + M31 (Holdout) Score Gain Relative to Unaligned Mean Baselines
     \begin{axis}[
       name=evoA,
-      width=0.33\textwidth,
-      height=4.6cm,
-      xlabel={Evolutionary Iteration (\code{ring\_set})},
-      ylabel={Composite Score},
-      xmin=-0.4, xmax=10.4,
-      ymin=104.8, ymax=110.1,
-      xtick={0,1,2,3,4,5,6,7,8,9,10},
+      width=0.32\textwidth,
+      height=4.7cm,
+      xlabel={Milestone (\code{It 0--10} $\to$ \code{Flat F2})},
+      ylabel={$\Delta$ Score vs.\ Unaligned Mean},
+      xmin=-0.6, xmax=11.7,
+      ymin=43.8, ymax=55.3,
+      xtick={0,2,4,6,8,10,11},
+      xticklabels={0,2,4,6,8,10,F2},
       grid=both,
       grid style={gray!20},
       tick label style={font=\scriptsize},
       label style={font=\footnotesize},
-      title={\footnotesize\textbf{(a) Composite Score Frontier}},
+      title={\footnotesize\textbf{(a) M57 Train \& M31 Holdout Gain}},
       title style={yshift=-2pt},
-      legend style={font=\tiny, at={(0.03,0.97)}, anchor=north west, fill=white, fill opacity=0.9, draw=gray!50, inner sep=1.5pt}
+      legend style={font=\tiny, at={(0.98,0.03)}, anchor=south east, fill=white, fill opacity=0.92, draw=gray!50, inner sep=1.2pt}
     ]
-      % Monotonic incumbent frontier
-      \addplot[color=navy!50, line width=1.1pt, densely dotted, forget plot] coordinates {
-        (0,106.0167) (1,106.0167) (2,106.0167) (3,107.3607) (4,107.6978)
-        (5,107.6978) (6,108.6381) (7,108.8227) (8,109.1949) (9,109.1949) (10,109.5265)
+      % ring_set monotonic frontier (relative to 60.28 unaligned mean)
+      \addplot[color=navy!45, line width=0.9pt, densely dotted, forget plot] coordinates {
+        (0,45.7367) (1,45.7367) (2,45.7367) (3,47.0807) (4,47.4178)
+        (5,47.4178) (6,48.3581) (7,48.5427) (8,48.9149) (9,48.9149) (10,49.2465) (11,49.3021)
       };
-      % Kept commits
-      \addplot[color=navy, thick, mark=*, mark size=1.8pt] coordinates {
-        (0,106.0167) (3,107.3607) (4,107.6978) (6,108.6381) (7,108.8227) (8,109.1949) (10,109.5265)
+      % ring_set KEPT + Flat F2
+      \addplot[color=navy, thick, mark=*, mark size=1.6pt] coordinates {
+        (0,45.7367) (3,47.0807) (4,47.4178) (6,48.3581) (7,48.5427) (8,48.9149) (10,49.2465) (11,49.3021)
       };
-      \addlegendentry{KEPT (\code{AUDIT\_PASS})}
+      \addlegendentry{M57 Train (\code{60.28} base)}
 
-      % Reverted hypotheses
-      \addplot[only marks, color=crimson, mark=diamond*, mark size=2.3pt] coordinates {
-        (1,105.3087) (2,105.2288) (5,107.3738) (9,108.2440)
+      % andromeda_set zero-shot holdout (relative to 62.57 unaligned mean)
+      \addplot[color=tealaccent, thick, densely dashed, mark=triangle*, mark size=2.0pt] coordinates {
+        (0,48.8653) (10,52.3096) (11,53.3808)
       };
-      \addlegendentry{REVERTED}
+      \addlegendentry{M31 Holdout (\code{62.57} base)}
 
-      \node[font=\tiny, color=crimson, anchor=north] at (axis cs:1.6,105.22) {Spatial CFA};
-      \node[font=\tiny, color=navy, anchor=south east] at (axis cs:8.3,109.22) {Iter 8 (+0.37)};
+      % Reverted hypotheses on M57
+      \addplot[only marks, color=crimson, mark=diamond*, mark size=2.1pt] coordinates {
+        (1,45.0287) (2,44.9488) (5,47.0938) (9,47.9640)
+      };
+      \addlegendentry{M57 Reverted}
+
+      \node[font=\tiny, color=tealaccent!85!black, anchor=south west, inner sep=1pt] at (axis cs:-0.2,49.2) {\code{111.44}};
+      \node[font=\tiny, color=tealaccent!85!black, anchor=south east, inner sep=1pt] at (axis cs:9.8,52.45) {\code{114.88}};
+      \node[font=\tiny, color=tealaccent!85!black, anchor=south east, inner sep=1pt] at (axis cs:11.55,53.65) {\textbf{\code{115.95}}};
+      \node[font=\tiny, color=navy, anchor=south east, inner sep=1pt] at (axis cs:11.55,49.55) {\textbf{\code{109.58}}};
     \end{axis}
 
     % Panel (b): Sky Noise & Matched Star Count
     \begin{axis}[
       name=evoB,
-      at={($(evoA.east)+(1.35cm,0)$)},
+      at={($(evoA.east)+(1.42cm,0)$)},
       anchor=west,
-      width=0.32\textwidth,
-      height=4.6cm,
+      width=0.30\textwidth,
+      height=4.7cm,
       xlabel={KEPT Iteration Milestone},
       ylabel={Normalized Sky RMS $\sigma_{\text{bg}}$},
       xmin=-0.5, xmax=10.5,
@@ -535,7 +558,7 @@ Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{
       grid style={gray!20},
       tick label style={font=\scriptsize},
       label style={font=\footnotesize},
-      title={\footnotesize\textbf{(b) Sky Noise \& $5\sigma$ Star Recovery}},
+      title={\footnotesize\textbf{(b) M57 Sky Noise \& $5\sigma$ Stars}},
       title style={yshift=-2pt},
       legend style={font=\tiny, at={(0.97,0.97)}, anchor=north east, fill=white, fill opacity=0.9, draw=gray!50, inner sep=1.5pt}
     ]
@@ -552,20 +575,20 @@ Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{
     % Panel (c): FWHM Sharpness & Warm Impulses
     \begin{axis}[
       name=evoC,
-      at={($(evoB.east)+(1.35cm,0)$)},
+      at={($(evoB.east)+(1.38cm,0)$)},
       anchor=west,
-      width=0.32\textwidth,
-      height=4.6cm,
+      width=0.30\textwidth,
+      height=4.7cm,
       xlabel={KEPT Iteration Milestone},
       ylabel={Median Stellar FWHM (px)},
       xmin=-0.5, xmax=10.5,
-      ymin=10.78, ymax=11.25,
+      ymin=10.78, ymax=11.27,
       xtick={0,3,4,6,7,8,10},
       grid=both,
       grid style={gray!20},
       tick label style={font=\scriptsize},
       label style={font=\footnotesize},
-      title={\footnotesize\textbf{(c) PSF Sharpness \& Warm Impulses}},
+      title={\footnotesize\textbf{(c) M57 PSF \& Warm Impulses}},
       title style={yshift=-2pt},
       legend style={font=\tiny, at={(0.97,0.97)}, anchor=north east, fill=white, fill opacity=0.9, draw=gray!50, inner sep=1.5pt}
     ]
@@ -578,13 +601,13 @@ Prior to locking \code{scripts/\allowbreak evaluate.py}, an independent \textbf{
       };
       \addlegendentry{Stack \code{median\_fwhm\_px}}
 
-      \node[font=\tiny, color=amberaccent!90!black] at (axis cs:1.3,11.12) {11 imp.};
-      \node[font=\tiny, color=amberaccent!90!black] at (axis cs:5.1,11.06) {32 imp.};
+      \node[font=\tiny, color=amberaccent!90!black] at (axis cs:1.5,11.06) {11 imp.};
+      \node[font=\tiny, color=amberaccent!90!black] at (axis cs:5.1,11.05) {32 imp.};
       \node[font=\tiny, color=tealaccent!90!black, align=center] at (axis cs:8.2,10.815) {\textbf{0 warm imp.}\\(Iter 7--10)};
     \end{axis}
   \end{tikzpicture}
   \vspace{-0.4em}
-  \caption{Autonomous 10-iteration evolutionary progression on \code{ring\_set} (\code{logs/metrics.jsonl}). \textbf{(a)} Monotonic score frontier advancing from \code{106.0167} (\code{Iter 0}) to \code{109.5265} (\code{Iter 10}), contrasting reverted hypotheses (\code{Iter 1, 2, 5, 9}) against audited improvements. \textbf{(b)} Sky noise reduction to \code{0.109508} ($3.95\times$ below single-frame \code{0.432828}) and $5\sigma$ star depth growth from \code{105} (single frame) and \code{316} (\code{Iter 0}) to \code{351} (\code{Iter 10}). \textbf{(c)} Optimal PSF/SNR weighting (\code{Iter 6}) and OB/Winsorized dark calibration (\code{Iter 8}) push stacked \code{median\_fwhm\_px} (\code{10.8520\,px}) below the 18-exposure ensemble median (\code{10.9047\,px}), while temporal Winsorized clipping (\code{Iter 7}) eliminates all warm-pixel impulses ($\code{32} \to \code{0}$).}
+  \caption{Autonomous evolutionary progression on \code{ring\_set} (M57 train) and zero-shot holdout transfer to \code{andromeda\_set} (M31). \textbf{(a)} Composite-score gains ($\Delta$) relative to each dataset's unaligned dark-subtracted mean baseline (\code{60.28} on M57; \code{62.57} on M31), tracking M57 from \code{It 0} (\code{106.02}) $\to$ \code{It 10} (\code{109.53}) $\to$ \code{Flat F2} (\code{109.58}, \code{+49.30}) and zero-shot M31 from \code{It 0} (\code{111.44}) $\to$ \code{It 10} (\code{114.88}) $\to$ \code{Flat F2} (\code{115.95}, \code{+53.38}), alongside reverted M57 hypotheses (\code{It 1, 2, 5, 9}). \textbf{(b)} M57 sky noise reduction to \code{0.109508} ($3.95\times$ below single-frame \code{0.432828}) and $5\sigma$ star depth growth from \code{105} (single frame) and \code{316} (\code{It 0}) to \code{351} (\code{It 10}). \textbf{(c)} Optimal PSF/SNR weighting (\code{It 6}) and OB/Winsorized dark calibration (\code{It 8}) push stacked \code{median\_fwhm\_px} (\code{10.8520\,px}) below the 18-exposure ensemble median (\code{10.9047\,px}), while temporal Winsorized clipping (\code{It 7}) eliminates all warm-pixel impulses ($\code{32} \to \code{0}$).}
   \label{fig:evolution}
 \end{figure*}
 
@@ -613,7 +636,7 @@ Every iteration proposed a single atomic hypothesis on \code{ring\_set} + \code{
   Unlike bilinear interpolation---which collapses white-noise variance by $4\times$ at half-pixel shifts ($\sum w_k(0.5)^2 = 0.5$ per axis, creating Moir\'e smoothing bands)---Lanczos-3 preserves $\mathbb{E}[\sum \tilde{w}_k^2] \approx 0.89$ per axis, recovering \code{+27} faint $5\sigma$ stars ($\code{316} \to \code{343}$) and sharpening \code{median\_fwhm\_px} ($\code{11.1838} \to \code{11.1166\,px}$).
 
   \item \textbf{Chiral Valdes Triangle Geometric Hashing \& 4-DOF Procrustes Similarity (\code{Iter 4}, \code{+0.3372}):}
-  Using the \textbf{exact same 2D Lanczos-3 kernel} (\code{0}-line diff in \code{integrator.cpp}), \code{registration.cpp} constructs scale- and rotation-invariant \textbf{Valdes et al.\ (1995)} triangle descriptors $(u, v) = (L_1/L_2, L_0/L_2) \in (0, 1]^2$ ($L_0 \le L_1 \le L_2$, $L_2 \ge 140\text{\,px}$) augmented with signed cross-product chirality $\chi \in \{-1, +1\}$ (forbidding unphysical mirror reflections) indexed in a $64\times 64$ invariant hash table. Candidate correspondences seed full-field RANSAC (\code{2.2\,px} threshold) followed by 5-pass Huber-weighted ($\delta = 0.45\text{\,px}$) IRLS solving the exact linear Procrustes system centered at $(c_x, c_y) = (2144.5, 1427.5)$:
+  Using the \textbf{exact same 2D Lanczos-3 kernel} (\code{0}-line diff in \code{integrator.cpp}), \code{registration.cpp} constructs scale- and rotation-invariant \textbf{Valdes et al.\ (1995)}~\cite{valdes1995focas} triangle descriptors $(u, v) = (L_1/L_2, L_0/L_2) \in (0, 1]^2$ ($L_0 \le L_1 \le L_2$, $L_2 \ge 140\text{\,px}$) augmented with signed cross-product chirality $\chi \in \{-1, +1\}$ (forbidding unphysical mirror reflections) indexed in a $64\times 64$ invariant hash table. Candidate correspondences seed full-field RANSAC (\code{2.2\,px} threshold) followed by 5-pass Huber-weighted ($\delta = 0.45\text{\,px}$) IRLS solving the exact linear Procrustes system centered at $(c_x, c_y) = (2144.5, 1427.5)$:
   \begin{equation}
     \begin{aligned}
       \begin{bmatrix} f_x \\ f_y \end{bmatrix} &=
@@ -659,18 +682,18 @@ Every iteration proposed a single atomic hypothesis on \code{ring\_set} + \code{
 \subsection{Deep Postmortems on the Four Reverted Hypotheses}
 
 \begin{enumerate}
-  \item \textbf{The Non-Commutative Ordering Discovery (\code{Iter 1} \code{-0.7080} \& \code{Iter 2} \code{-0.7879} vs.\ \code{Iter 7 + Iter 8} \code{+0.5569}):}
+  \item \textbf{Scorer Blind Spot, Artificial Local Minimum \& Non-Commutative Ordering (\code{Iter 1} \code{-0.7080} \& \code{Iter 2} \code{-0.7879} vs.\ \code{Iter 7 + Iter 8} \code{+0.5569}):}
   Why did sensor-level calibration fail in Iterations 1 and 2 ($\code{106.02} \to \code{105.31} / \code{105.23}$), yet succeed cleanly in Iteration 8 ($\code{108.82} \to \code{109.19}$)?
   \begin{itemize}
     \item First, comparing \code{Iter 1} against \code{Iter 2} isolated a subtle color-PSF bug in \code{Iter 1}'s cross-color warm-pixel guard (\code{cross\_inner} at $r=1$ vs.\ \code{cross\_outer} at $r=\sqrt{65}=8.06$): for comatic corner stars ($\text{FWHM} \approx 15\text{\,px}$, $\sigma \approx 6.4\text{\,px}$) peaking on a Green site, $r = 8.06\text{\,px}$ still retains $\exp(-65 / 2\sigma^2) = 45\%$ of peak flux, while $(R+B)/2G \approx 0.35$, yielding $0.55 \times 0.35 = 0.192 < 0.20$ and shaving bright Green star peaks ($\code{12.61} \to \code{12.84\,px}$).
-    \item Second, replacing that guard with a spectral-filter-matched same-color guard ($r=2$ vs.\ $r=18$ on the identical CFA sub-lattice in \code{Iter 2}, where optical stars have $>69\%$ halo ratio vs.\ $\sim 0\%$ for single-site defects) \emph{still} yielded $\code{corner\_fwhm\_px} = \code{15.35\,px}$! Inspection of \code{transforms.json} revealed the deeper interaction: in \code{iter-0-baseline} (unweighted integer shift-and-add \emph{without} temporal sigma clipping), five worm-gear turnaround exposures (\code{IMG\_6077..6082}) cluster within $2\text{--}4\text{\,px}$, smearing unrepaired stationary warm pixels into compact $\sim 4\text{\,px}$ multi-pixel pseudo-stars in the sparse outer corners ($\sim 25$ corner stars), artificially depressing \code{iter-0-baseline}'s apparent \code{corner\_fwhm\_px} (\code{14.66\,px} vs.\ true optical \code{15.23\,px}), while lower sky noise simultaneously lifted faint comatic outer-corner stars ($\text{FWHM} \sim 16\text{--}18\text{\,px}$) above $5\sigma$. Once \textbf{temporal Winsorized Sigma Clipping (\code{Iter 7})} eliminated drifting warm-pixel artifacts orthogonally along the time axis ($\code{32} \to \code{0}$ warm impulses), applying \textbf{pure per-row OB pedestal + Winsorized master dark + thermal dark scaling (\code{Iter 8}, with zero spatial CFA interpolation)} improved \emph{both} \code{median\_fwhm\_px} ($\code{10.9057} \to \code{10.8520\,px}$) and \code{corner\_fwhm\_px} ($\code{15.0433} \to \code{14.8577\,px}$) for a clean \code{+0.3722} gain.
+    \item Second, replacing that guard with a spectral-filter-matched same-color guard ($r=2$ vs.\ $r=18$ on the identical CFA sub-lattice in \code{Iter 2}) \emph{still} yielded $\code{corner\_fwhm\_px} = \code{15.35\,px}$! Inspection of \code{transforms.json} revealed a \textbf{scorer blind spot creating a shallow artificial local minimum}: in \code{iter-0-baseline} (unweighted shift-and-add \emph{without} temporal sigma clipping), shifting frames to align stars also shifted fixed 1-pixel warm pixels across $\sim 4\text{\,px}$ in five clustered worm-gear turnaround exposures (\code{IMG\_6077..6082}). This smearing turned single-pixel thermal defects into compact $\sim 4\text{\,px}$ multi-pixel blobs that \emph{evaded the scorer's 1-pixel warm-impulse filter} while artificially depressing \code{iter-0-baseline}'s apparent \code{corner\_fwhm\_px} (\code{14.66\,px} vs.\ true optical \code{15.23\,px}) in the sparse outer corners ($\sim 25$ corner stars). Repairing those warm pixels in \code{Iter 1--2} removed the artificial pseudo-stars and exposed the true optical corner FWHM, creating a score dip. Crucially, although the flaw lay in the scorer, the objective remained well-aligned enough that reaching the true deeper optimum still required resolving the underlying physics via \textbf{temporal Winsorized Sigma Clipping (\code{Iter 7})}, which eliminated drifting warm-pixel artifacts orthogonally along the time axis ($\code{32} \to \code{0}$ impulses) and immediately unlocked a clean \code{+0.3722} gain from pure per-row OB pedestal + Winsorized master dark + thermal dark scaling (\code{Iter 8}, with zero spatial CFA interpolation), improving \emph{both} \code{median\_fwhm\_px} ($\code{10.9057} \to \code{10.8520\,px}$) and \code{corner\_fwhm\_px} ($\code{15.0433} \to \code{14.8577\,px}$).
   \end{itemize}
 
   \item \textbf{6-DOF Full Affine Overfitting Over Short Zenith Tracks (\code{Iter 5}, \code{-0.3241}):}
   Upgrading 4-DOF Similarity to 6-DOF Affine tightened interior \code{median\_fwhm\_px} ($\code{11.1734} \to \code{11.1018\,px}$) but degraded \code{corner\_fwhm\_px} ($\code{15.3746} \to \code{15.5491\,px}$) and lost 8 faint stars ($\code{345} \to \code{337}$). Across a 10-minute imaging window near transit (\code{620\,s}), physical differential atmospheric refraction shear across a $1.2^\circ$ field is $<0.04\text{\,px}$; fitting two unconstrained shear/aspect parameters ($\code{m00} - \code{m11}$, $\code{m01} + \code{m10}$) to $\sim 55$ stars overfits radially asymmetric Newtonian coma centroids and extrapolates edge registration error.
 
   \item \textbf{Directional Hamilton--Adams vs.\ Wiener-Optimal Linear MHC $5\times 5$ on Oversampled PSFs (\code{Iter 9}, \code{-0.9509}):}
-  Replacing linear MHC $5\times 5$ with two-pass directional gradient-weighted Hamilton--Adams (1997) degraded both sharpness ($\code{10.8520} \to \code{10.9212\,px}$) and background noise ($\code{0.111904} \to \code{0.113102}$). Unlike natural scenes dominated by 1-pixel step edges, prime-focus stellar PSFs here are heavily oversampled ($\text{FWHM} = 9\text{--}15\text{\,px}$); omitting MHC's second-derivative cross-channel Laplacian terms (\code{-1.5 * ax2}, \code{-h2 + 0.5 * v2}) in Pass 2 softens R/B stellar cores and elevates chrominance-to-luminance noise leakage.
+  Replacing linear MHC $5\times 5$ with two-pass directional gradient-weighted Hamilton--Adams (1997)~\cite{hamilton1997adaptive} degraded both sharpness ($\code{10.8520} \to \code{10.9212\,px}$) and background noise ($\code{0.111904} \to \code{0.113102}$). Unlike natural scenes dominated by 1-pixel step edges, prime-focus stellar PSFs here are heavily oversampled ($\text{FWHM} = 9\text{--}15\text{\,px}$); omitting MHC's second-derivative cross-channel Laplacian terms (\code{-1.5 * ax2}, \code{-h2 + 0.5 * v2}) in Pass 2 softens R/B stellar cores and elevates chrominance-to-luminance noise leakage.
 \end{enumerate}
 
 \begin{figure*}[t]
@@ -790,11 +813,11 @@ Every iteration proposed a single atomic hypothesis on \code{ring\_set} + \code{
 
 Figure~\ref{fig:m57_visual} demonstrates the astrophysical payoff of the 10-iteration C++20 optimization on M57 (located at sensor coordinates $(1576.6, 1311.7)$, ring axis ratio $b/a = 0.891$, $\text{PA}_{\text{sensor}} = +71.3^\circ$). Cross-matching nearby field star \code{GSC 02642-00433} ($V = 12.9\text{\,mag}$, true separation $61.7''$, measured radial offset $96.3\text{\,px}$) establishes the prime-focus plate scale as $0.641''/\text{px}$ ($45.8' \times 30.5'$ field of view).
 
-In a standard global sky-anchored stretch, diffuse nebular continuum inside M57's central cavity ($64.4\text{\,ADU}$ luminance above sky) compresses the contrast of interior point sources. Anchoring a color-preserving Lupton \code{asinh} stretch to the $r_{\text{ell}} \in [8.5, 13.5]\text{\,px}$ cavity trough (Fig.~\ref{fig:m57_visual}c) clearly reveals M57's ionizing central white dwarf \textbf{\code{WD 1851+329}} ($V \approx 15.75\text{\,mag}$, $T_{\text{eff}} \approx 120{,}000\text{\,K}$). Whereas \code{WD 1851+329} is indistinguishable from noise in a single $29\text{\,s}$ exposure ($\text{SNR}_B = +1.12\sigma$), the 19-frame C++20 stack detects it at \textbf{$\text{SNR}_B = +6.71\sigma$} in the $450\text{\,nm}$ Blue band ($\text{SNR} = +5.01\sigma$ even after subtracting $0.769\,G$ to cancel $[\text{O\,\textsc{iii}}]/\text{H}\beta$ nebular emission, and $+4.56\sigma$ in broadband luminance) vs.\ $+1.73\sigma$ in Red---physically matching a hot Rayleigh--Jeans $F_\lambda \propto \lambda^{-4}$ photosphere alongside resolved $[\text{O\,\textsc{iii}}]$ ($40\text{\,px}$) vs.\ $\text{H}\alpha/[\text{N\,\textsc{ii}}]$ ($44\text{\,px}$) shell stratification (Fig.~\ref{fig:m57_visual}d).
+In a standard global sky-anchored stretch, diffuse nebular continuum inside M57's central cavity ($64.4\text{\,ADU}$ luminance above sky) compresses the contrast of interior point sources. Anchoring a color-preserving Lupton \code{asinh} stretch~\cite{lupton2004preparing} to the $r_{\text{ell}} \in [8.5, 13.5]\text{\,px}$ cavity trough (Fig.~\ref{fig:m57_visual}c) clearly reveals M57's ionizing central white dwarf \textbf{\code{WD 1851+329}} ($V \approx 15.75\text{\,mag}$, $T_{\text{eff}} \approx 120{,}000\text{\,K}$). Whereas \code{WD 1851+329} is indistinguishable from noise in a single $29\text{\,s}$ exposure ($\text{SNR}_B = +1.12\sigma$), the 19-frame C++20 stack detects it at \textbf{$\text{SNR}_B = +6.71\sigma$} in the $450\text{\,nm}$ Blue band ($\text{SNR} = +5.01\sigma$ even after subtracting $0.769\,G$ to cancel $[\text{O\,\textsc{iii}}]/\text{H}\beta$ nebular emission, and $+4.56\sigma$ in broadband luminance) vs.\ $+1.73\sigma$ in Red---physically matching a hot Rayleigh--Jeans $F_\lambda \propto \lambda^{-4}$ photosphere alongside resolved $[\text{O\,\textsc{iii}}]$ ($40\text{\,px}$) vs.\ $\text{H}\alpha/[\text{N\,\textsc{ii}}]$ ($44\text{\,px}$) shell stratification (Fig.~\ref{fig:m57_visual}d).
 
 \begin{table*}[t]
   \centering
-  \caption{Out-of-distribution zero-shot holdout generalization on \code{andromeda\_set} + \code{dark\_set} (M31 extended spiral galaxy; audited \code{AUDIT\_PASS} by independent Red-Team session \code{6b38b6}). Zero algorithmic or hyperparameter retuning was performed on \code{andromeda\_set}.}
+  \caption{Out-of-distribution zero-shot holdout generalization on \code{andromeda\_set} + \code{dark\_set} (M31 extended spiral galaxy; audited \code{AUDIT\_PASS} by independent Red-Team session \code{6b38b6}), alongside the unaligned dark-subtracted mean baseline and the 2020 manual star-ROI + bilinear stack (\code{eval\_andromeda\_naive\_roi.json}). Zero algorithmic or hyperparameter retuning was performed on \code{andromeda\_set}.}
   \label{tab:holdout}
   \vspace{0.3em}
   \resizebox{\textwidth}{!}{%
@@ -803,16 +826,21 @@ In a standard global sky-anchored stretch, diffuse nebular continuum inside M57'
       \textbf{Pipeline Version on \code{andromeda\_set}} & \textbf{Cheat?} & \textbf{Composite Score} & \textbf{$\Delta$ vs.\ \code{iter-0}} & \textbf{Med FWHM} & \textbf{Cor FWHM} & \textbf{Ecc.} & \textbf{Sky RMS} & \textbf{Stars} & \textbf{\code{ncc\_16} / \code{ncc\_64}} & \textbf{\code{rms\_64}} & \textbf{\code{flux\_r}} & \textbf{Warm} & \textbf{$N_{\text{int}}$ ($N_{\text{eff}}$)} \\
       \midrule
       Single Reference (\code{IMG\_6044.CR2}) & \code{False} & \code{50.0000} & --- & \code{7.7490} & \code{12.0637} & \code{0.5520} & \code{0.452792} & \code{107} & \code{1.000000 / 1.000000} & \code{1.0000} & \code{1.00000} & --- & \code{1 (1.00)} \\
+      Unaligned Dark-Subtracted Mean & \code{False} & \code{62.57} & --- & --- & --- & --- & --- & --- & --- & --- & --- & --- & \code{21 (21.00)} \\
+      2020 Manual ROI + Bilinear (\code{naive\_2020\_roi}) & \textbf{\code{True}} & \code{-inf} (\code{138.31}$^*$) & --- & \code{8.4261} & \code{10.3936}$^*$ & \code{0.6299} & \code{0.065006}$^*$ & \code{395}$^*$ & \code{0.995950 / 0.999687} & \code{1.0029} & \code{0.99995} & \code{164} & \code{21 (21.00)} \\
+      \midrule
       \code{iter-0-baseline} (Unmodified) & \code{False} & \code{111.4353} & \code{0.0000} & \code{8.3600} & \code{12.9533} & \code{0.6243} & \code{0.100537} & \code{249} & \code{0.994483 / 0.999596} & \code{1.0021} & \code{0.99995} & \code{477} & \code{21 (21.00)} \\
       \textbf{\code{iter-best-final} (Zero Tuning)} & \code{False} & \textbf{\code{114.8796}} & \textbf{\code{+3.4443}} & \textbf{\code{8.2000}} & \textbf{\code{12.5927}} & \code{0.6258} & \textbf{\code{0.096736}} & \textbf{\code{264}} & \textbf{\code{0.995794 / 0.999639}} & \textbf{\code{1.0016}} & \textbf{\code{0.99995}} & \textbf{\code{0}} & \code{21 (20.42)} \\
       \bottomrule
     \end{tabular}%
   }
+  \vspace{0.2em}
+  \parbox{\textwidth}{\footnotesize $^*$Disqualified by Gate~2a ($\rho_{1\text{px}} = 0.5373$ vs.\ $0.2575$ ref; $\mathcal{R}_{4\times 4} = 1.8617$ vs.\ $1.3002$ ref); bilinear blur artificially lowers 1-pixel RMS while softening stars (\code{8.43\,px}) and leaving \code{164} diagonal RGB warm-pixel streaks.}
 \end{table*}
 
 \begin{table*}[t]
   \centering
-  \caption{Stage-by-stage 16-thread OpenMP computational throughput of the self-contained C++20 stacking engine (\code{cpp\_stacker/}, \code{g++ 15.2.0 -std=c++20 -O3 -march=native -fopenmp -lraw\_r}, 2,782 LOC, 262\,KiB binary).}
+  \caption{Stage-by-stage 16-thread OpenMP computational throughput of the self-contained C++20 stacking engine (\code{cpp\_stacker/}, \code{g++ 15.2.0 -std=c++20 -O3 -march=native -fopenmp -lraw\_r}, 3,759 LOC, 331\,KiB binary; pure CPU, zero GPU; optional \code{flat\_field.cpp} adds $1.65\text{--}2.57\text{\,s}$).}
   \label{tab:performance}
   \vspace{0.3em}
   \resizebox{\textwidth}{!}{%
@@ -978,16 +1006,20 @@ Because \code{ring\_set} was acquired 3 minutes later on the identical optical t
 
 In the absence of physical twilight or lightbox \code{flat\_set} exposures, dark-calibrated light frames remain governed by the multiplicative optical-train transmission field $V(\bm{x}) \in (0, 1]$ locked to physical sensor coordinates $\bm{x} = (x, y)$:
 \begin{equation}
-  I_m(\bm{x}) = V_{\text{vig}}(\bm{x})\, V_{\text{motes}}(\bm{x})\left[ B_m(\bm{x}) + S\!\left(T_m^{-1}(\bm{x})\right) \right] + \epsilon_m(\bm{x}),
+  \begin{aligned}
+    I_m(\bm{x}) &= V_{\text{vig}}(\bm{x})\, V_{\text{motes}}(\bm{x}) \\
+                &\quad \times \left[ B_m(\bm{x}) + S\!\left(T_m^{-1}(\bm{x})\right) \right] + \epsilon_m(\bm{x}),
+  \end{aligned}
   \label{eq:flat_forward_model}
 \end{equation}
 where $V_{\text{vig}}(\bm{x})$ is the smooth low-frequency radial illumination drop ($\sim 32.0\%$ from $r=0$ to $r=0.9\,R_{\max}$; $35.5\%$ to extreme corners), and $V_{\text{motes}}(\bm{x})$ encodes mid-frequency ($20\text{--}140\text{\,px}$) out-of-focus absorptive shadows cast by dust particles on the sensor cover glass and optical elements. Because the mount drifted by $47.1\text{\,px}$ across \code{ring\_set} (19 exposures) and $56.8\text{\,px}$ across \code{andromeda\_set} (21 exposures), celestial point sources $S(T_m^{-1}(\bm{x}))$ translate across the sensor while $V(\bm{x})$ remains strictly stationary.
 
-To measure dust motes independently of radial vignetting without modifying the locked referee \code{scripts/evaluate.py}, we construct a pure-NumPy diagnostic (\code{scripts/evaluate\_flat\_motes.py}) that downsamples interior pixels into star-suppressed $8\times 8$ 35th-percentile blocks, detrends a 6-parameter quiet-sky radial polynomial, and applies a normalized-convolution band-pass ($\sigma_{\text{lo}} = 12\text{\,px}$, $\sigma_{\text{hi}} = 144\text{\,px}$). Cross-correlating the resulting quiet-sky band-pass maps of \code{ring\_base.npy} (Lyra) and \code{andromeda\_base.npy} (Andromeda) at identical sensor coordinates yields a statistically overwhelming positive correlation of \textbf{$r = +0.3479$} (raw un-detrended $r = +0.5023$) across $>4{,}200$ shared quiet-sky blocks, with deepest localized shadows of \textbf{$-7.26\%$} in \code{ring\_set} (peaking at $(y=2684, x=980)$) and \textbf{$-6.68\%$} in \code{andromeda\_set}. Crucially, because dust motes are locked to sensor coordinates, dividing $I_m(\bm{x}) / V(\bm{x})$ \emph{before} Lanczos-3 sky resampling removes the exact un-smeared shadow from every frame prior to drift-induced streaking.
+\noindent\textbf{Why Full Flat-Fielding Triggers Gate~4 \& Motivation for the Refined Diagnostic Evaluator:}
+Because the original locked referee (\code{scripts/\allowbreak evaluate.py}) compares $64\times 64$ block medians against the \emph{unflattened} single-frame raw reference (\code{logs/ref\_*.npy}), which retains the curved $32\%$ radial vignetting bowl, a legitimately flattened sky (\code{Flat F6} / \code{iter\_06}) becomes uncorrelated with the curved raw reference on $64\times 64$ blocks and triggers Gate~4 (\code{extended\_flux\_erasure\_detected})---even while passing all photometric linearity, dark-clipping, spatial-smoothing, and FWHM gates. Rather than unsealing the locked referee, this structural mismatch directly motivates our dedicated pure-NumPy flat-field diagnostic (\code{scripts/\allowbreak evaluate\_flat\_motes.py}). It downsamples interior pixels into star-suppressed $8\times 8$ 35th-percentile blocks, detrends a 6-parameter quiet-sky radial polynomial, and applies a normalized-convolution band-pass ($\sigma_{\text{lo}} = 12\text{\,px}$, $\sigma_{\text{hi}} = 144\text{\,px}$) to measure dust motes independently of radial vignetting. Cross-correlating the resulting quiet-sky band-pass maps of \code{ring\_base.npy} (Lyra) and \code{andromeda\_base.npy} (Andromeda) at identical sensor coordinates yields a statistically overwhelming positive correlation of \textbf{$r = +0.3479$} (raw un-detrended $r = +0.5023$) across $>4{,}200$ shared quiet-sky blocks, with deepest localized shadows of \textbf{$-7.26\%$} in \code{ring\_set} (peaking at $(y=2684, x=980)$) and \textbf{$-6.68\%$} in \code{andromeda\_set}. Crucially, because dust motes are locked to sensor coordinates, dividing $I_m(\bm{x}) / V(\bm{x})$ \emph{before} Lanczos-3 sky resampling removes the exact un-smeared shadow from every frame prior to drift-induced streaking.
 
 \subsection{C++20 Sensor-Space Flat Estimator (\code{flat\_field.cpp}) \& Root-Cause Refinements}
 
-We implement a modular C++20/OpenMP flat-field module (\code{cpp\_stacker/src/flat\_field.cpp}, $\sim 1.6\text{--}2.6\text{\,s}$ wall time) exposed via \code{--flat-mode <none|motes-self|motes-iter|full-self|full-iter>}, \code{--save-flat}, and \code{--load-flat} (preserving bit-for-bit reproduction of \code{b447079} at default \code{--flat-mode none}):
+We implement a modular C++20/OpenMP flat-field module (\code{cpp\_stacker/\allowbreak src/\allowbreak flat\_field.cpp}, $\sim 1.6\text{--}2.6\text{\,s}$ wall time) exposed via \code{--flat-mode} \code{<none|\allowbreak motes-self|\allowbreak motes-iter|\allowbreak full-self|\allowbreak full-iter>}, \code{--save-flat}, and \code{--load-flat} (preserving bit-for-bit reproduction of \code{b447079} at default \code{--flat-mode none}):
 \begin{enumerate}
   \item \textbf{Sensor-Space Star-Rejected Sky Grid ($4\times 4$ cells):} Each frame is normalized by its interior channel sky median and aggregated into $4\times 4$ 40th-percentile blocks respecting per-frame \code{valid\_rows}. An asymmetric temporal sigma-clipped mean across the $N$ unaligned frames (clipping drifting star transits at $+1.5\,\text{MAD}$ while retaining absorptive dust motes down to $-3.0\,\text{MAD}$) isolates stationary sensor structure.
   \item \textbf{Luminance-Anchored Symmetric Huber Vignetting ($V_{\text{vig}}$):} An initial 20-annulus lower-25th-percentile radial profile detects and excludes extended galactic emission (M31 core/disk where residual $> +0.055$), followed by 6-pass \emph{symmetric} Huber IRLS ($\delta = 0.025$) for $V_{\text{vig},L}(x, y) = \text{norm}(c_0 + c_x n_x + c_y n_y + c_2 r^2 + c_4 r^4 + c_6 r^6)$ with optical-axis decenter bounded to $\pm 250\text{\,px}$. Chromatic vignetting is modeled via a 2-parameter symmetric radial ratio $1 + \beta_c r^2$ fitted to $I_c / I_L$.
@@ -1005,6 +1037,7 @@ We implement a modular C++20/OpenMP flat-field module (\code{cpp\_stacker/src/fl
   \setlength{\tabcolsep}{4.5pt}
   \caption{Quantitative synthetic flat-field ablation ladder (\code{logs/flat\_experiments/metrics.jsonl}). Full-flat modes remove the $32\%$ radial vignetting dome present in the un-flattened single-frame reference \code{logs/ref\_*.npy}, triggering only Referee Gate~4 (\code{extended\_flux\_erasure\_detected}) while passing photometric linearity, dark-clipping, spatial-smoothing, and FWHM gates. In mote-only mode (\code{iter\_02}), both datasets pass all gates and set new locked-referee highs.}
   \label{tab:flat_ablation}
+  \resizebox{\textwidth}{!}{%
   \begin{tabular}{@{}llccccccccc@{}}
     \toprule
     \textbf{Dataset} & \textbf{Iteration / Mode} & \textbf{Referee} & \textbf{Vig Drop} & \textbf{Sky STD} & \textbf{Mote RMS} & \textbf{Min Dip} & \textbf{Area $>2\%$} & \textbf{Cross $r$} & \textbf{$R/G$ Drift} & \textbf{M31 Azim} \\
@@ -1023,7 +1056,8 @@ We implement a modular C++20/OpenMP flat-field module (\code{cpp\_stacker/src/fl
     \code{andromeda} & \code{iter\_06} (\textbf{blind \code{ring} motes}) & 114.8794 & 32.16\% & 8.75\% & 0.533\% & $-2.61\%$ & 0.028\% & $+0.0527$ & $-2.04\%$ & 3.937\% \\
     \code{andromeda} & \code{iter\_06} (\textbf{blind \code{ring} full}) & Gate 4$^\dagger$ & \textbf{$+1.00\%$} & \textbf{2.00\%} & 0.544\% & $-2.48\%$ & \textbf{0.020\%} & \textbf{$+0.0235$} & \textbf{$+0.76\%$} & \textbf{2.704\%} \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}%
+  }
 \end{table*}
 
 \subsection{Quantitative Ablation \& Blind Cross-Session Validation}
@@ -1037,7 +1071,7 @@ Table~\ref{tab:flat_ablation} summarizes the full experimental progression acros
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{andromeda_4stage_progression.png}
-  \caption{Four-stage end-to-end visual progression on the Andromeda Galaxy (\code{andromeda\_set}, 21 exposures, identical per-panel \code{asinh} stretch): \textbf{(1)} blind unaligned sensor-space average ($56.8\text{\,px}$ star trailing, vignetting, dust motes); \textbf{(2)} original \code{iter-0-baseline} integer shift-and-add mean; \textbf{(3)} best pre-flat stack (\code{b447079}, 4-DOF Similarity + Lanczos-3 + Winsorized, Score \code{114.88}); \textbf{(4)} blind session-wide synthetic flat-field stack (\code{iter\_06\_wiener\_final}, vignetting $32.05\% \to +1.00\%$, cross-dataset mote correlation $+0.3479 \to +0.0235$), unveiling M31's smooth extended elliptical disk across the full frame.}
+  \caption{Four-stage end-to-end visual progression on the Andromeda Galaxy (\code{andromeda\_set}, 21 exposures, identical per-panel \code{asinh} stretch): \textbf{(1)} naive unaligned dark-subtracted average (Score \code{62.57}; $56.8\text{\,px}$ star trailing, vignetting, dust motes); \textbf{(2)} 2020 manual star-ROI translation + bilinear stack (\code{naive\_2020\_roi}; disqualified by Gate~2a at \code{-inf} with $\rho_{1\text{px}}=0.54$, softened stars at \code{8.43\,px}, and \code{164} diagonal RGB warm-pixel streaks); \textbf{(3)} evolved C++20 pre-flat stack (\code{b447079}, 4-DOF Similarity + Lanczos-3 + Winsorized, Score \code{114.88}, \code{0} warm impulses); \textbf{(4)} evolved C++20 + blind session-wide synthetic flat-field stack (\code{iter\_06\_wiener\_final}, vignetting $32.05\% \to +1.00\%$, cross-dataset mote correlation $+0.3479 \to +0.0235$), unveiling M31's smooth extended elliptical disk across the full frame.}
   \label{fig:m31_4stage}
 \end{figure*}
 
@@ -1045,26 +1079,85 @@ Table~\ref{tab:flat_ablation} summarizes the full experimental progression acros
   \centering
   \includegraphics[width=0.78\textwidth]{ring_4stage_progression.png}\\[0.4em]
   \includegraphics[width=0.46\textwidth]{ring_4stage_m57_zoom.png}
-  \caption{Four-stage end-to-end visual progression on the Ring Nebula (\code{ring\_set}, 19 exposures, identical per-panel \code{asinh} stretch). \textbf{Top:} full-field progression from blind unaligned average (1) through \code{iter-0-baseline} (2) and best pre-flat stack \code{b447079} (3) to the synthetic flat-field stack \code{iter\_06\_wiener\_final} (4, $7.0\times$ flatter sky, $100\%$ of $>2\%$ dust-mote area removed). \textbf{Bottom:} $360\times 360\text{\,px}$ core zoom centered on M57 at $(1577, 1312)$, illustrating the recovery of M57's crisp ionized ring structure and central white dwarf from the smeared unaligned average.}
+  \caption{Four-stage end-to-end visual progression on the Ring Nebula (\code{ring\_set}, 19 exposures, identical per-panel \code{asinh} stretch). \textbf{Top:} full-field progression from (1) naive unaligned average (Score \code{60.28}) through (2) 2020 manual ROI shift + bilinear (\code{naive\_2020\_roi}, Gate~2a: \code{-inf}, $\rho_{1\text{px}}=0.55$, \code{22} warm impulses) and (3) evolved C++20 pre-flat stack (\code{b447079}, Score \code{109.53}) to (4) evolved C++20 + synthetic flat-field stack (\code{iter\_06\_wiener\_final}, $7.0\times$ flatter sky, $100\%$ of $>2\%$ dust-mote area removed). \textbf{Bottom:} $360\times 360\text{\,px}$ core zoom centered on M57 at $(1577, 1312)$, illustrating the bilinear noise clumping and lingering dust-mote shadow below M57 in (2) vs.\ the crisp ionized ring and clean background in (4).}
   \label{fig:m57_4stage}
 \end{figure*}
 
-\section{C++20/OpenMP Systems Architecture, Performance \& Conclusions}
+\section{C++20/OpenMP Throughput, Agentic Compute Budget \& Conclusions}
 \label{sec:performance}
 
-\subsection{Modular C++20 Architecture \& Stage-by-Stage Throughput}
+\subsection{Modular C++20 Architecture \& Pure-CPU Throughput}
 
-The production engine in \code{cpp\_stacker/} comprises \code{3,759} lines of strict \code{-Wall -Wextra -pedantic} C++20 compiled with \code{g++ 15.2.0} (\code{-O3 -march=native -fopenmp -lraw\_r}) into a \code{331\,KiB} standalone executable with native IEEE-754 big-endian FITS, 32-bit float TIFF, 16-bit \code{asinh}-preview TIFF, and NumPy \code{.npy} v1.0 readers/writers (\code{io\_export.cpp}), plus the optional sensor-space synthetic flat-field module (\code{flat\_field.cpp}, adding only \code{1.65\,s} in \code{motes-self}/\code{full-self} mode and \code{2.57\,s} in 3-pass \code{motes-iter} mode). Table~\ref{tab:performance} summarizes stage-by-stage 16-thread OpenMP runtimes.
+The production engine in \code{cpp\_stacker/} comprises \code{3,759} lines of strict \code{-Wall -Wextra -pedantic} C++20 compiled with \code{g++ 15.2.0} (\code{-O3 -march=native -fopenmp -lraw\_r}) into a \code{331\,KiB} standalone executable with native IEEE-754 big-endian FITS, 32-bit float TIFF, 16-bit \code{asinh}-preview TIFF, and NumPy \code{.npy} v1.0 readers/writers (\code{io\_export.cpp}), plus the optional sensor-space synthetic flat-field module (\code{flat\_field.cpp}, adding only \code{1.65\,s} in \code{motes-self}/\code{full-self} mode and \code{2.57\,s} in 3-pass \code{motes-iter} mode). Table~\ref{tab:performance} summarizes stage-by-stage pure-CPU (16 OpenMP threads, zero GPU) runtimes ($70\text{--}90\text{\,s}$ end-to-end).
 
 Notably, \textbf{registration across all 21 frames executes in \code{33\,milliseconds}} (\code{1.6\,ms/frame}), replacing the 2020 Python \code{fftconvolve} / $[-40, 40]^2$ \code{DifferenceCorrelator} bottleneck by $>10^3\times$, while full $6\times 6$ 2D Lanczos-3 warping + per-pixel iterative Winsorized Sigma Clipping over $7.72 \times 10^8$ interpolated channel samples completes in \code{22.55\,s} via a \code{4,096}-subdivision L1-cached Lanczos lookup table and zero-allocation register insertion sorts.
+
+\subsection{Agentic Compute \& Token Budget}
+
+Table~\ref{tab:token_budget} summarizes the total language-model orchestration footprint across both development sessions (the 10-iteration core stacking campaign plus the synthetic flat-fielding campaign) and all 19 subagents (forensics, torture-testing, coding, and isolated Red-Team Critic audits). Spawning fresh, stateless Critic subagents for each commit kept cumulative audit context to only $\sim 15\text{M}$ input tokens ($<6\%$ of total prompt-cached input), preventing context-window bloat while preserving strict audit independence.
+
+\begin{table}[t]
+  \centering
+  \footnotesize
+  \caption{Total agentic compute and token footprint across both sessions and all 19 subagents (core stacking + synthetic flat-fielding).}
+  \label{tab:token_budget}
+  \vspace{0.2em}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    \textbf{Orchestration Resource Metric} & \textbf{Total Footprint} \\
+    \midrule
+    Active Sessions / Total Subagents Spawned & 2 sessions / 19 subagents \\
+    Total LLM Reasoning \& Tool Turns & \code{1,461} turns \\
+    Total Generated (Output) Tokens & $\sim 1.44\text{M}$ tokens \\
+    Cumulative Prompt-Cached Input Tokens & $\sim 261\text{M}$ tokens \\
+    Fresh Isolated Critic Audit Input Tokens & $\sim 15\text{M}$ tokens ($5.7\%$) \\
+    C++20 Engine Hardware (No GPU) & 16-thread CPU ($70\text{--}90\text{\,s}$/run) \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
 
 \subsection{Key Scientific \& Methodological Conclusions}
 
 \begin{enumerate}
-  \item \textbf{Point-Source Geometric Hashing Defeats Coherent Sensor Systematics:} Extracting background-subtracted stellar centroids ($<0.2\%$ of pixels) and matching chirality-preserved Valdes triangle invariants completely decouples astrometry from zero-lag master-dark estimation variance, optical vignetting bowls, worm-gear velocity reversals, and celestial field rotation.
-  \item \textbf{Algorithmic Evolution Is Non-Commutative:} Single-frame spatial defect repair interacts nonlinearly with downstream multi-frame integration; deferring outlier rejection to orthogonal 1D temporal Winsorized Sigma Clipping unlocked pure physical sensor calibration (\code{+0.56} combined) where premature spatial repair had regressed (\code{-0.79}).
-  \item \textbf{Blind Physics Referees + Isolated Red-Team Auditors Prevent Goodhart's Law:} Pairing an immutable, torture-tested photometric referee (\code{Gates 0--5}) with per-iteration independent code/telemetry auditors enables fully autonomous scientific software engineering---achieving \code{+3.51} training gain and \code{+3.44} zero-shot out-of-distribution generalization without a single image ever entering a language model context window.
-  \item \textbf{Sensor-Space Synthetic Flat-Fielding Recovers Optical Transmission Without Physical Flats:} Exploiting $47\text{--}57\text{\,px}$ mount drift to separate stationary sensor-locked optical transmission $V(\bm{x}) = V_{\text{vig}}(\bm{x})\cdot V_{\text{motes}}(\bm{x})$ from moving celestial signal in sensor coordinates prior to Lanczos-3 resampling removes $32\%$ radial vignetting to $\le 1.5\%$ residual, suppresses $>93\%$ of cross-dataset dust-mote correlation blindly across targets (\code{ring\_set} $\to$ \code{andromeda\_set}), and achieves new locked-referee highs in mote-only iterative sky-model mode (\code{109.5821} / \code{115.9508}).
+  \item \textbf{Point-Source Geometric Hashing \& Sharp Resampling Defeat Coherent Sensor Systematics:} Extracting background-subtracted stellar centroids ($<0.2\%$ of pixels) and matching chirality-preserved Valdes triangle invariants decouples astrometry from zero-lag master-dark estimation variance, optical vignetting bowls, worm-gear velocity reversals, and celestial field rotation. Meanwhile, the empirical Gate~2a disqualification of the 2020 manual ROI + bilinear stack ($\rho_{1\text{px}} = 0.55$, \code{164} RGB warm-pixel streaks on M31) confirms that partition-of-unity Lanczos-3 resampling and anti-smoothing gates are indispensable.
+  \item \textbf{Scorer Blind Spots Can Create Shallow Local Minima Without Breaking Alignment:} Premature spatial CFA repair (\code{Iter 1--2}) regressed against a shallow artificial local minimum caused by 4-pixel turnaround warm-pixel smears evading the scorer's 1-pixel hotspot filter; yet reaching the true deeper optimum still required solving the underlying physics via orthogonal 1D temporal Winsorized Sigma Clipping (\code{Iter 7}), which unlocked clean pure-sensor calibration in \code{Iter 8} (\code{+0.56} combined).
+  \item \textbf{Blind Physics Referees + Isolated Critics Prevent Goodhart's Law:} Pairing an immutable, torture-tested photometric referee (\code{Gates 0--5}) with stateless Red-Team Critic subagents (all 7 winning commits passed \code{AUDIT\_PASS}, zero attempted metric-gaming in this run; cf.~\cite{krakovna2020specification,skalse2022defining}) achieved \code{+3.51} training gain and \code{+3.44} zero-shot out-of-distribution generalization without a single image ever entering an LLM context window.
+  \item \textbf{Human-in-the-Loop Direction Unlocks Out-of-Box Breakthroughs:} Automated hill-climbing independently converged on the industry-standard astrophotography stacking core (analogous to PixInsight, Siril, and DeepSkyStacker) running purely on CPU ($16$ OpenMP threads, zero GPU, $70\text{--}90\text{\,s}$), yet remained bounded by the objective box of its locked referee. While this autonomous trajectory converged on established industry practices, formal head-to-head quantitative benchmarking---comparing both photometric fidelity and wall-clock execution speed directly against PixInsight, Siril, and DeepSkyStacker on identical raw datasets---remains essential future work to definitively substantiate the engine's high-performance claim. The single largest visual breakthrough---estimating a blind cross-target synthetic flat field from M57 (\code{ring\_set}) to flatten M31 (\code{andromeda\_set}) from $32.05\% \to +1.00\%$ vignetting and collapse dust-mote correlation by $93\%$---required human domain intuition to step outside the loop and introduce a refined diagnostic evaluator (\code{evaluate\_flat\_motes.py}). This demonstrates that AI's distinctive scientific strength here lies in rapidly synthesizing tailored, deterministic, auditable algorithms for dataset-specific quirks---such as blind session flats, stencil-isolated partial-row \code{.CR2} salvage, and silent \code{LibRaw} predictor-underflow gating.
 \end{enumerate}
+
+\begin{thebibliography}{9}
+  \footnotesize
+  \bibitem{krakovna2020specification}
+  V.~Krakovna, J.~Uesato, V.~Mikulik, M.~Rahtz, T.~Everitt, R.~Kumar, Z.~Kenton, J.~Ortega, and S.~Legg,
+  ``Specification gaming: the flip side of AI ingenuity,''
+  \emph{DeepMind Safety Research Blog}, Apr.\ 2020.
+
+  \bibitem{skalse2022defining}
+  J.~Skalse, N.~H.~R.~Howe, D.~Krasheninnikov, and D.~Krueger,
+  ``Defining and characterizing reward hacking,''
+  in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~35, pp.~9460--9471, 2022.
+
+  \bibitem{malvar2004high}
+  H.~S.~Malvar, L.-W.~He, and R.~Cutler,
+  ``High-quality linear interpolation for demosaicing of Bayer-patterned color images,''
+  in \emph{Proc.\ IEEE ICASSP}, vol.~3, pp.~485--488, 2004.
+
+  \bibitem{valdes1995focas}
+  F.~G.~Valdes, L.~E.~Campusano, J.~D.~Velasquez, and P.~B.~Stetson,
+  ``FOCAS automatic catalog matching algorithms,''
+  \emph{Publ.\ Astron.\ Soc.\ Pac.}, vol.~107, pp.~1119--1128, 1995.
+
+  \bibitem{hamilton1997adaptive}
+  J.~F.~Hamilton and J.~E.~Adams,
+  ``Adaptive color plane interpolation in single sensor color electronic camera,''
+  U.S.\ Patent 5,629,734, May 1997.
+
+  \bibitem{lupton2004preparing}
+  R.~Lupton, M.~R.~Blanton, G.~Fekete, D.~W.~Hogg, W.~O'Mullane, A.~Szalay, and N.~Wherry,
+  ``Preparing red-green-blue images from CCD data,''
+  \emph{Publ.\ Astron.\ Soc.\ Pac.}, vol.~116, pp.~133--137, 2004.
+\end{thebibliography}
 
 \end{document}
