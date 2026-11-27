@@ -21,8 +21,10 @@ float median_small(float* arr, int n) {
     return 0.5f * (lo + hi);
 }
 
+// CAMERA-SPECIFIC (Canon CMOS left optical-black strip):
 // Smooth per-row left optical-black strip medians with a 33-row running median to cancel
 // Canon CMOS horizontal row-readout bias drift without injecting 58-column sample variance.
+// Cameras without an exposed left OB strip should fall back to LibRaw::color.black / cblack.
 std::vector<float> smooth_ob_row_pedestal(const RawSensorFrame& frame) {
     std::vector<float> out(ACTIVE_H, static_cast<float>(frame.meta.ob_left_median));
     if (static_cast<int>(frame.ob_row_medians.size()) != ACTIVE_H) {
@@ -131,7 +133,10 @@ void calibrate_light_cfa(
         }
     }
 
-    // Fit per-frame thermal dark scaling factor alpha on known hot dark sites (250..9000 ADU)
+    // Fit per-frame thermal dark scaling factor alpha on known hot dark sites (250..9000 ADU).
+    // CAMERA-SPECIFIC (14-bit sensor headroom ~14,335 ADU above ~2048 pedestal):
+    // Thresholds (250, 9000, 220, 12500 ADU) should be scaled relative to (maximum - black)
+    // when generalizing to 12-bit or 16-bit sensors.
     std::vector<double> ratios;
     ratios.reserve(256);
     for (int r = 4; r < ACTIVE_H - 4; ++r) {

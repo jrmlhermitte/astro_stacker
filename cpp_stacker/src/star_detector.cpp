@@ -246,6 +246,9 @@ FrameQuality analyze_frame_stars(
 
             const int area = static_cast<int>(qy.size());
             if (area < 5 || area > 2500) continue;
+            // CAMERA-SPECIFIC (14-bit sensor): Rejects saturated star cores above 10,500 ADU
+            // (~73% of 14-bit headroom above the 2048 black level). For 12-bit or 16-bit cameras,
+            // derive this saturation cutoff from LibRaw::color.maximum - color.black.
             if (pval >= 10500.0f) continue;
             if (py < ROI_MARGIN || py >= y_max_roi ||
                 px < ROI_MARGIN || px >= ACTIVE_W - ROI_MARGIN) {

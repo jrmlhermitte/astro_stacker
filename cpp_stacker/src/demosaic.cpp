@@ -14,6 +14,10 @@ inline int reflect101(int idx, int n) {
 
 } // namespace
 
+// CAMERA-SPECIFIC (RGGB Bayer CFA):
+// Assumes (r_even, c_even)=R, (r_even, c_odd)=G, (r_odd, c_even)=G, (r_odd, c_odd)=B.
+// Supporting BGGR / GRBG / GBRG Bayer sensors requires passing the 2x2 CFA phase offset
+// from LibRaw::FC(r, c); non-Bayer sensors (e.g. Fujifilm X-Trans) require a separate demosaicer.
 void demosaic_mhc_rggb(
     const float* cfa,
     int height,

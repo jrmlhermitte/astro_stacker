@@ -46,6 +46,8 @@ double exact_u16_quantile_from_hist(const uint32_t* hist, size_t n_total, double
     return static_cast<double>(val_lo) + frac * static_cast<double>(val_hi - val_lo);
 }
 
+// CAMERA-SPECIFIC (Canon): Strictly matches .CR2 files only.
+// To support other cameras (.CR3, .NEF, .ARW, .DNG, etc.), expand this extension filter.
 bool has_strict_cr2_extension(const std::string& filename) {
     if (filename.size() <= 4) return false;
     const std::string tail = filename.substr(filename.size() - 4);
@@ -111,6 +113,8 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
     meta.camera_temp_c = cmn.CameraTemperature;
     meta.timestamp = static_cast<int64_t>(oth.timestamp);
 
+    // CAMERA-SPECIFIC (Canon EOS 1100D): Rejects any frame whose raw/active
+    // geometry does not exactly match the hardcoded 1100D sensor layout in types.hpp.
     if (sz.raw_width != RAW_W || sz.raw_height != RAW_H ||
         sz.top_margin != TOP_MARGIN || sz.left_margin != LEFT_MARGIN ||
         sz.width != ACTIVE_W || sz.height != ACTIVE_H) {
@@ -119,6 +123,7 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
         return false;
     }
 
+    // CAMERA-SPECIFIC (RGGB Bayer): Downstream MHC demosaicing currently assumes RGGB layout.
     const char c00 = id.cdesc[lr.FC(0, 0)];
     const char c01 = id.cdesc[lr.FC(0, 1)];
     const char c10 = id.cdesc[lr.FC(1, 0)];
@@ -129,6 +134,7 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
     std::vector<uint32_t> hist_ob(65536, 0);
 
     out_frame.active_cfa.resize(ACTIVE_PIXELS);
+    // CAMERA-SPECIFIC (Canon 14-bit): Nominal black pedestal is ~2048 ADU.
     out_frame.ob_row_medians.resize(ACTIVE_H, 2048.0f);
 
     uint16_t vmin = 65535;
@@ -163,6 +169,11 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
             if (v > vmax) vmax = v;
             if (v < row_min) row_min = v;
             if (v > row_max) row_max = v;
+            // CAMERA-SPECIFIC (Canon 14-bit, ~2048 ADU black level):
+            // Values below 1750 ADU or above 16383 (2^14 - 1) indicate lossless-JPEG
+            // bitstream corruption on this sensor. Other cameras with 12-bit/16-bit
+            // ADCs or different black pedestals (e.g. 0, 512, 1024) require deriving
+            // these bounds dynamically from LibRaw::color.black and color.maximum.
             if (v < 1750) ++underflow_cnt;
         }
         if (contiguous_clean_rows == ACTIVE_H) {
@@ -179,6 +190,7 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
         hist_ob.data(), static_cast<size_t>(ACTIVE_H) * ob_cols, 0.50
     );
 
+    // CAMERA-SPECIFIC (Canon 14-bit RGGB): 16383 max ADC and 1850 ADU p1 floor (~2048 pedestal).
     const bool full_clean = (meta.data_error_count == 0) &&
                             (meta.active_max <= 16383) &&
                             (meta.active_p1 >= 1850.0) &&
@@ -191,9 +203,11 @@ bool load_and_validate_cr2(const std::string& filepath, RawSensorFrame& out_fram
         return true;
     }
 
-    // Partial-row salvage gate: if >= 80% of top active rows (>= 2285 rows) are completely free of
-    // ADC overflow/underflow before end-of-stream bitstream corruption, salvage [0, safe_rows) with
-    // an 8-row safety margin so MHC 5x5 + Lanczos-3 stencils never touch corrupted rows.
+    // Partial-row salvage gate: if >= 80% of top active rows (>= 2285 rows for ACTIVE_H=2856)
+    // are completely free of ADC overflow/underflow before end-of-stream bitstream corruption,
+    // salvage [0, safe_rows) with an 8-row safety margin so MHC 5x5 + Lanczos-3 stencils never
+    // touch corrupted rows.
+    // CAMERA-SPECIFIC: 2285 is 0.80 * 2856, and 1850.0 assumes ~2048 ADU black pedestal.
     if (meta.cfa_is_rggb && contiguous_clean_rows >= 2285) {
         std::vector<uint32_t> top_hist(65536, 0);
         const int safe_rows = contiguous_clean_rows - 8;
