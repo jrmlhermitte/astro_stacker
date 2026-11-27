@@ -1,5 +1,9 @@
 # Astro Stacker
 
+> **Work in Progress (WIP):** This project is actively evolving and not yet a finished, general-purpose release (for example, sensor geometry is currently hardcoded to Canon EOS 1100D `.CR2` frames, and CLI/packaging/UI details may still change).
+>
+> **Development Note:** Much of the C++20 implementation, evaluation harness, and documentation was **heavily AI-assisted** (making it possible to build in limited spare time) and **human-directed & validated** against real astrophotography data. Read the full story behind how this was built in the companion blog post: [Hill-Climbing an Astro Stacker with Carbon](https://jrmlhermitte.github.io/2026/11/26/hill-climbing-an-astro-stacker-with-carbon.html).
+
 A fast, pure-CPU **C++20 / OpenMP** deep-sky astrophotography stacking engine for raw DSLR exposures.
 
 Built from first principles to recover faint deep-sky signal near the Poisson sky floor amidst unguided mount drift, celestial field rotation, outdoor sensor cooling, sensor-locked dust motes, optical vignetting, and corrupted raw bitstreams.
@@ -168,9 +172,10 @@ Planned next steps:
 
 ---
 
-## Research Paper & Evaluation
+## Research Paper, Blog Post & Evaluation
 
-The full technical write-up—including the postmortem of the [`legacy_2020/`](legacy_2020/README.md) prototype, raw bitstream forensics, the 28-test adversarial evaluation harness (`scripts/evaluate.py`), evolutionary optimization results on M57 and holdout M31, and synthetic flat-fielding—is available in [`paper/astro_stacker_paper.pdf`](paper/astro_stacker_paper.pdf).
+- **Blog Post:** [Hill-Climbing an Astro Stacker with Carbon](https://jrmlhermitte.github.io/2026/11/26/hill-climbing-an-astro-stacker-with-carbon.html) — overview of the AI-assisted, human-validated development workflow and results.
+- **Technical Paper:** [`paper/astro_stacker_paper.pdf`](paper/astro_stacker_paper.pdf) — the full write-up covering the postmortem of the [`legacy_2020/`](legacy_2020/README.md) prototype, raw bitstream forensics, the 28-test adversarial evaluation harness (`scripts/evaluate.py`), evolutionary optimization results on M57 and holdout M31, and synthetic flat-fielding.
 
 ---
 
